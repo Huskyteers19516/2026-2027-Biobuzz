@@ -62,7 +62,7 @@ import java.util.List;
  * Remove or comment out the @Disabled line to add this OpMode to the Driver Station OpMode list.
  */
 @TeleOp(name = "Concept: AprilTag Easy", group = "Concept")
-@Disabled
+
 public class ConceptAprilTagEasy extends LinearOpMode {
 
     private static final boolean USE_WEBCAM = true;  // true for webcam, false for phone camera
@@ -137,8 +137,8 @@ public class ConceptAprilTagEasy extends LinearOpMode {
      */
     private void telemetryAprilTag() {
 
-        List<AprilTagDetection> currentDetections = aprilTag.getDetections();
-        telemetry.addData("# AprilTags Detected", currentDetections.size());
+        List<AprilTagDetection> currentDetections = aprilTag.getDetections();// make a list for all the thing gonna input next
+        telemetry.addData("# AprilTags Detected", currentDetections.size());// after it detected, put it into the list and record it
 
         // Step through the list of detections and display info for each one.
         for (AprilTagDetection detection : currentDetections) {
