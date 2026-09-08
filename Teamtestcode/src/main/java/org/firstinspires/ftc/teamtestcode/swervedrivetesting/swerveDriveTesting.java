@@ -24,6 +24,7 @@ public class swerveDriveTesting extends OpMode {
     private static final double STICK_DEADZONE = 0.15;
     private static final boolean SCALE_DRIVE_BY_ERROR = true;
     private static final double TRIM_STEP_DEGREES = 0.5;
+    private static final double TANK_POWER_SCALE = 1.0;
 
     private DcMotor driveMotor;
     private DcMotor leftFront;
@@ -57,6 +58,11 @@ public class swerveDriveTesting extends OpMode {
         rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
         rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
+        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+
         steerServo.setDirection(STEER_REVERSED
                 ? DcMotorSimple.Direction.REVERSE
                 : DcMotorSimple.Direction.FORWARD);
@@ -79,6 +85,7 @@ public class swerveDriveTesting extends OpMode {
             handleTrim();
             steerServo.setPower(0.0);
             driveMotor.setPower(0.0);
+            setTankPower(0.0);
             heldAngle = moduleAngle;
             previousError = 0.0;
 
@@ -134,8 +141,14 @@ public class swerveDriveTesting extends OpMode {
             }
         }
 
+        double tankInput = -gamepad1.right_stick_y;
+        double tankPower = Math.abs(tankInput) < STICK_DEADZONE
+                ? 0.0
+                : Range.clip(tankInput * TANK_POWER_SCALE, -1.0, 1.0);
+
         steerServo.setPower(steerPower);
         driveMotor.setPower(drivePower);
+        setTankPower(tankPower);
 
         telemetry.addData("Stick", "x %.2f  y %.2f", stickX, stickY);
         telemetry.addData("Module angle", "%.1f deg", moduleAngle);
@@ -143,6 +156,7 @@ public class swerveDriveTesting extends OpMode {
         telemetry.addData("Error", "%.1f deg", error);
         telemetry.addData("Steer power", "%.2f", steerPower);
         telemetry.addData("Drive power", "%.2f%s", drivePower, reversed ? "  (reversed)" : "");
+        telemetry.addData("Tank power", "%.2f", tankPower);
         telemetry.addData("Offset", "%.1f deg", offsetTrim);
         telemetry.update();
     }
@@ -151,6 +165,14 @@ public class swerveDriveTesting extends OpMode {
     public void stop() {
         driveMotor.setPower(0.0);
         steerServo.setPower(0.0);
+        setTankPower(0.0);
+    }
+
+    private void setTankPower(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
     }
 
     private double readRawAngle() {
