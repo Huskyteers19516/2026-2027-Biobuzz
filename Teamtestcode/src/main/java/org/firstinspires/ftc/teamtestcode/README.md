@@ -26,7 +26,7 @@ replaces the other.
 
 | Name on the Driver Station | Type | What it tests | Guide |
 | --- | --- | --- | --- |
-| Single Swerve Module | TeleOp | One swerve module on its own | [swervedrivetesting](swervedrivetesting/README.md) |
+| Single Swerve Module | TeleOp | One swerve module on its own | [swervedrivetesting](swervedrivetesting/SingleSwerveTeleOp_README.md) |
 | Swerve Drive Testing (1 module) | TeleOp | Swerve module mounted on the tank test robot | [swervedrivetesting](swervedrivetesting/README.md) |
 | Tank Drive Auto (Square) | Autonomous | Tank robot drives a square and returns to start | [tankdriveauto](tankdriveauto/README.md) |
 | Intake Motor Test | TeleOp | Intake motor speed and current | [intaketesting](intaketesting/README.md) |

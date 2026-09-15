@@ -9,6 +9,8 @@ drives. Push the stick further to go faster.
 | **Single Swerve Module** | Testing the module by itself |
 | **Swerve Drive Testing (1 module)** | The module is mounted on the tank test robot. Adds the 4 tank motors. |
 
+Step-by-step guide for Single Swerve Module: [SingleSwerveTeleOp_README.md](SingleSwerveTeleOp_README.md)
+
 The two files have **separate constants**. If you calibrate one, copy the values
 into the other too.
 
