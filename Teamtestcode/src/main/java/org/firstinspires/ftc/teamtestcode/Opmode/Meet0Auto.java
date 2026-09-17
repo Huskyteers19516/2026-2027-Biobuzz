@@ -15,7 +15,6 @@ public class Meet0Auto extends LinearOpMode {
     private DcMotor leftBack;
     private DcMotor rightFront;
     private DcMotor rightBack;
-
     private CRServo leftIntake;
     private CRServo rightIntake;
 
@@ -23,7 +22,22 @@ public class Meet0Auto extends LinearOpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
-    @Override
+    private void setMotorMode(DcMotor.RunMode mode) {
+        leftFront.setMode(mode);
+        leftBack.setMode(mode);
+        rightFront.setMode(mode);
+        rightBack.setMode(mode);
+    }
+
+    private void setMotorPower(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
+    }
+
+
+@Override
     public void runOpMode() {
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
@@ -70,6 +84,21 @@ public class Meet0Auto extends LinearOpMode {
 
         waitForStart();
 
+        if (opModeIsActive()) {
+            telemetry.addData("Auto Path", "Driving out of the starting zone");
+            telemetry.update();
+            driveStraight(0.5,1200);
+            sleep(500);
+
+            // this code should make it leave the starting area .
+
+
+            telemetry.addData("Auto Path", "Parking robot");
+            telemetry.update();
+            driveStraight(-0.3,400);
+            // back up and return to parking
+        }
+
         if (isStopRequested()) {
             return;
         }
@@ -92,4 +121,22 @@ public class Meet0Auto extends LinearOpMode {
         rightIntake.setPower(0.0);
         launcher.setPower(0.0);
     }
+
+    public void driveStraight(double power, int ticks) {
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        leftFront.setTargetPosition(ticks);
+        leftBack.setTargetPosition(ticks);
+        rightFront.setTargetPosition(ticks);
+        rightBack.setTargetPosition(ticks);
+
+        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+        setMotorPower(power);
+
+        while (opModeIsActive() && leftFront.isBusy()) {
+
+        }
+        setMotorPower(0);
+    }
+
 }
