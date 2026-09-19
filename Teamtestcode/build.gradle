@@ -11,6 +11,13 @@ android {
     }
 }
 
+repositories {
+    mavenCentral()
+    maven { url 'https://repo.dairy.foundation/releases/' }
+}
+
 dependencies {
     implementation project(':FtcRobotController')
+    implementation 'com.pedropathing:revhub:3.0.1'
+    implementation 'com.pedropathing:tuning:1.0.1'
 }
