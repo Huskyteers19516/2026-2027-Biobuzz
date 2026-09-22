@@ -1,15 +1,15 @@
-package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
+package org.firstinspires.ftc.teamtestcode.Opmode;
 
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp(name = "Meet0 TeleOp", group = "Meet0")
-public class Meet0TeleOp extends OpMode {
+@Autonomous(name = "Meet0 Auto", group = "Meet0")
+public class Meet0Auto extends LinearOpMode {
 
     private DcMotor leftFront;
     private DcMotor leftBack;
@@ -24,7 +24,7 @@ public class Meet0TeleOp extends OpMode {
     private final ElapsedTime runtime = new ElapsedTime();
 
     @Override
-    public void init() {
+    public void runOpMode() {
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
@@ -45,6 +45,11 @@ public class Meet0TeleOp extends OpMode {
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
         leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -61,22 +66,21 @@ public class Meet0TeleOp extends OpMode {
         stopAll();
 
         telemetry.addData("Status", "Initialized");
-    }
+        telemetry.update();
 
-    @Override
-    public void start() {
+        waitForStart();
+
+        if (isStopRequested()) {
+            return;
+        }
+
         runtime.reset();
-    }
 
-    @Override
-    public void loop() {
-        telemetry.addData("Status", "Running");
-        telemetry.addData("Runtime", "%.1f s", runtime.seconds());
-    }
-
-    @Override
-    public void stop() {
         stopAll();
+
+        telemetry.addData("Status", "Finished");
+        telemetry.addData("Runtime", "%.1f s", runtime.seconds());
+        telemetry.update();
     }
 
     private void stopAll() {
