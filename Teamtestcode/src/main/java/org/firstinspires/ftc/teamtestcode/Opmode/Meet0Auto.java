@@ -81,6 +81,14 @@ public class Meet0Auto extends LinearOpMode {
         telemetry.addData("Status", "Finished");
         telemetry.addData("Runtime", "%.1f s", runtime.seconds());
         telemetry.update();
+
+        moveForward(0.5, 2.0);
+
+// Pause for 1 second
+        sleep(1000);
+
+// Move backward at 50% power for 2 seconds
+        moveBackward(0.5, 2.0);
     }
 
     // Move forward
