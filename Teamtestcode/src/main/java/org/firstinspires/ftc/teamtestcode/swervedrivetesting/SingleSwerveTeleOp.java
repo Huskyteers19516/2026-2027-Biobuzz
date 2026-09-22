@@ -2,46 +2,51 @@ package org.firstinspires.ftc.teamtestcode.swervedrivetesting;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.AnalogInput;
-import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.PwmControl;
+import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 @TeleOp(name = "Single Swerve Module", group = "Testing")
 public class SingleSwerveTeleOp extends OpMode {
 
-    private static final double ENCODER_OFFSET_DEGREES = 0.0;
-    private static final boolean STEER_REVERSED = false;
+    private static final double SERVO_TRAVEL_DEGREES = 270.0;
+    private static final double SERVO_CENTER = 0.5;
+    private static final boolean SERVO_REVERSED = false;
     private static final boolean DRIVE_REVERSED = false;
-
-    private static final double STEER_KP = 0.012;
-    private static final double STEER_KD = 0.0006;
-    private static final double STEER_KS = 0.05;
-    private static final double STEER_TOLERANCE_DEGREES = 2.0;
-    private static final double STEER_MAX_POWER = 1.0;
 
     private static final double STICK_DEADZONE = 0.15;
     private static final double DRIVE_POWER_SCALE = 1.0;
-    private static final double TRIM_STEP_DEGREES = 0.5;
+    private static final double TRIM_STEP = 0.002;
+
+    private static final double SERVO_SLEW_SECONDS = 0.25;
+    private static final double FOLD_HYSTERESIS_DEGREES = 15.0;
+
+    private static final boolean USE_EXTENDED_PWM = false;
+    private static final double PWM_LOWER_MICROSECONDS = 500.0;
+    private static final double PWM_UPPER_MICROSECONDS = 2500.0;
 
     private DcMotor driveMotor;
-    private CRServo steerServo;
-    private AnalogInput steerEncoder;
+    private Servo steerServo;
 
     private final ElapsedTime loopTimer = new ElapsedTime();
 
-    private double heldAngle = 0.0;
-    private double offsetTrim = ENCODER_OFFSET_DEGREES;
-    private double previousError = 0.0;
+    private double centerTrim = SERVO_CENTER;
+    private double commandedAngle = 0.0;
+    private double estimatedAngle = 0.0;
+    private double commandedPosition = SERVO_CENTER;
+    private boolean driveReversedState = false;
+    private boolean positionClipped = false;
     private boolean dpadWasPressed = false;
+    private boolean extendedPwmApplied = false;
 
     @Override
     public void init() {
         driveMotor = hardwareMap.get(DcMotor.class, "swerve_motor");
-        steerServo = hardwareMap.get(CRServo.class, "swerve_servo");
-        steerEncoder = hardwareMap.get(AnalogInput.class, "swerve_encoder");
+        steerServo = hardwareMap.get(Servo.class, "swerve_servo");
 
         driveMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         driveMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -49,130 +54,169 @@ public class SingleSwerveTeleOp extends OpMode {
                 ? DcMotorSimple.Direction.REVERSE
                 : DcMotorSimple.Direction.FORWARD);
 
-        steerServo.setDirection(STEER_REVERSED
-                ? DcMotorSimple.Direction.REVERSE
-                : DcMotorSimple.Direction.FORWARD);
+        steerServo.setDirection(Servo.Direction.FORWARD);
 
-        heldAngle = readModuleAngle();
+        if (USE_EXTENDED_PWM && steerServo instanceof ServoImplEx) {
+            ((ServoImplEx) steerServo).setPwmRange(
+                    new PwmControl.PwmRange(PWM_LOWER_MICROSECONDS, PWM_UPPER_MICROSECONDS));
+            extendedPwmApplied = true;
+        }
+
+        commandedAngle = 0.0;
+        estimatedAngle = 0.0;
+        driveReversedState = false;
+        commandedPosition = positionForAngle(0.0);
+        steerServo.setPosition(commandedPosition);
+        driveMotor.setPower(0.0);
     }
 
     @Override
     public void init_loop() {
         telemetry.addLine("Single Swerve Module");
-        telemetry.addData("Module angle", "%.1f deg", readModuleAngle());
-        telemetry.addData("Raw encoder", "%.1f deg", readRawAngle());
-        telemetry.addLine("Left stick: point and drive. Hold A: calibrate.");
+        telemetry.addData("Servo position", "%.3f", commandedPosition);
+        telemetry.addData("Center trim", "%.3f", centerTrim);
+        telemetry.addData("Reachable", "+%.0f / -%.0f deg",
+                reachablePositiveDegrees(), reachableNegativeDegrees());
+        telemetry.addData("Extended PWM", extendedPwmApplied ? "on" : "off");
+        telemetry.addLine("Press START, then hold A to calibrate.");
         telemetry.update();
     }
 
     @Override
     public void start() {
         loopTimer.reset();
-        previousError = 0.0;
-        heldAngle = readModuleAngle();
+        commandedAngle = 0.0;
+        estimatedAngle = 0.0;
+        driveReversedState = false;
+        commandedPosition = positionForAngle(0.0);
     }
 
     @Override
     public void loop() {
-        double moduleAngle = readModuleAngle();
+        double dt = loopTimer.seconds();
+        loopTimer.reset();
 
         if (gamepad1.a) {
             handleTrim();
-            setOutputs(0.0, 0.0);
-            heldAngle = moduleAngle;
-            previousError = 0.0;
-            loopTimer.reset();
+
+            commandedAngle = 0.0;
+            driveReversedState = false;
+            commandedPosition = positionForAngle(0.0);
+            advanceEstimate(dt);
+            setOutputs(commandedPosition, 0.0);
 
             telemetry.addLine(">>> CALIBRATION MODE <<<");
-            telemetry.addLine("Point the wheel straight forward by hand.");
-            telemetry.addData("Raw encoder", "%.1f deg", readRawAngle());
-            telemetry.addData("Offset", "%.1f deg", offsetTrim);
-            telemetry.addData("Module angle", "%.1f deg", moduleAngle);
-            telemetry.addLine("dpad left/right trims the offset.");
-            telemetry.addLine("Copy Raw encoder into ENCODER_OFFSET_DEGREES.");
+            telemetry.addLine("Wheel is commanded straight forward.");
+            telemetry.addData("Servo position", "%.3f", commandedPosition);
+            telemetry.addData("Center trim", "%.3f", centerTrim);
+            telemetry.addData("Reachable", "+%.0f / -%.0f deg",
+                    reachablePositiveDegrees(), reachableNegativeDegrees());
+            telemetry.addLine("dpad left/right trims the center.");
+            telemetry.addLine("Copy Center trim into SERVO_CENTER.");
             telemetry.update();
             return;
         }
+
+        dpadWasPressed = false;
 
         double stickX = gamepad1.left_stick_x;
         double stickY = -gamepad1.left_stick_y;
         double magnitude = Range.clip(Math.hypot(stickX, stickY), 0.0, 1.0);
 
         if (magnitude < STICK_DEADZONE) {
-            setOutputs(0.0, 0.0);
-            previousError = 0.0;
-            loopTimer.reset();
+            advanceEstimate(dt);
+            setOutputs(commandedPosition, 0.0);
 
             telemetry.addData("Stick", "released");
-            telemetry.addData("Module angle", "%.1f deg", moduleAngle);
-            telemetry.addData("Held angle", "%.1f deg", heldAngle);
+            telemetry.addData("Held angle", "%.1f deg", commandedAngle);
+            telemetry.addData("Servo position", "%.3f", commandedPosition);
+            telemetry.addData("Drive power", "%.2f", 0.0);
             telemetry.update();
             return;
         }
 
-        double targetAngle = Math.toDegrees(Math.atan2(stickX, stickY));
-        boolean reversed = false;
+        double rawAngle = normalize(Math.toDegrees(Math.atan2(stickX, stickY)));
+        double foldedAngle = normalize(rawAngle + 180.0);
+        double foldLimit = 90.0 + FOLD_HYSTERESIS_DEGREES;
 
-        if (Math.abs(normalize(targetAngle - moduleAngle)) > 90.0) {
-            targetAngle = normalize(targetAngle + 180.0);
+        double targetAngle;
+        boolean reversed;
+
+        if (driveReversedState && Math.abs(foldedAngle) <= foldLimit) {
+            targetAngle = foldedAngle;
+            reversed = true;
+        } else if (!driveReversedState && Math.abs(rawAngle) <= foldLimit) {
+            targetAngle = rawAngle;
+            reversed = false;
+        } else if (Math.abs(rawAngle) <= 90.0) {
+            targetAngle = rawAngle;
+            reversed = false;
+        } else {
+            targetAngle = foldedAngle;
             reversed = true;
         }
 
-        heldAngle = targetAngle;
+        driveReversedState = reversed;
+        commandedAngle = Range.clip(targetAngle, -90.0, 90.0);
+        commandedPosition = positionForAngle(commandedAngle);
 
-        double error = normalize(targetAngle - moduleAngle);
-        double steerPower = computeSteerPower(error);
+        advanceEstimate(dt);
 
-        double drivePower = magnitude * DRIVE_POWER_SCALE * Math.cos(Math.toRadians(error));
+        double ramp = Range.clip(
+                1.0 - Math.abs(commandedAngle - estimatedAngle) / 90.0, 0.0, 1.0);
+
+        double drivePower = magnitude * DRIVE_POWER_SCALE * ramp;
         if (reversed) {
             drivePower = -drivePower;
         }
 
-        setOutputs(steerPower, drivePower);
+        setOutputs(commandedPosition, drivePower);
 
         telemetry.addData("Stick", "x %.2f  y %.2f", stickX, stickY);
-        telemetry.addData("Module angle", "%.1f deg", moduleAngle);
-        telemetry.addData("Target angle", "%.1f deg", targetAngle);
-        telemetry.addData("Error", "%.1f deg", error);
-        telemetry.addData("Steer power", "%.2f", steerPower);
+        telemetry.addData("Target angle", "%.1f deg", commandedAngle);
+        telemetry.addData("Servo position", "%.3f", commandedPosition);
+        telemetry.addData("Center trim", "%.3f", centerTrim);
+        telemetry.addData("Ramp", "%.2f", ramp);
         telemetry.addData("Drive power", "%.2f%s", drivePower, reversed ? "  (reversed)" : "");
+
+        if (positionClipped) {
+            telemetry.addLine("!! OUT OF SERVO RANGE - angle not reachable");
+            telemetry.addData("Reachable", "+%.0f / -%.0f deg",
+                    reachablePositiveDegrees(), reachableNegativeDegrees());
+        }
+
         telemetry.update();
     }
 
     @Override
     public void stop() {
-        setOutputs(0.0, 0.0);
+        driveMotor.setPower(0.0);
     }
 
-    private void setOutputs(double steerPower, double drivePower) {
-        steerServo.setPower(steerPower);
+    private void setOutputs(double servoPosition, double drivePower) {
+        steerServo.setPosition(Range.clip(servoPosition, 0.0, 1.0));
         driveMotor.setPower(Range.clip(drivePower, -1.0, 1.0));
     }
 
-    private double readRawAngle() {
-        return steerEncoder.getVoltage() / steerEncoder.getMaxVoltage() * 360.0;
+    private void advanceEstimate(double seconds) {
+        double maxStep = (90.0 / SERVO_SLEW_SECONDS) * Range.clip(seconds, 0.0, 1.0);
+        double delta = commandedAngle - estimatedAngle;
+        estimatedAngle += Range.clip(delta, -maxStep, maxStep);
     }
 
-    private double readModuleAngle() {
-        return normalize(readRawAngle() - offsetTrim);
+    private double positionForAngle(double angleDegrees) {
+        double signedAngle = SERVO_REVERSED ? -angleDegrees : angleDegrees;
+        double raw = centerTrim + signedAngle / SERVO_TRAVEL_DEGREES;
+        positionClipped = raw < 0.0 || raw > 1.0;
+        return Range.clip(raw, 0.0, 1.0);
     }
 
-    private double computeSteerPower(double error) {
-        double dt = loopTimer.seconds();
-        loopTimer.reset();
+    private double reachablePositiveDegrees() {
+        return (SERVO_REVERSED ? centerTrim : 1.0 - centerTrim) * SERVO_TRAVEL_DEGREES;
+    }
 
-        double derivative = dt > 1e-4 ? (error - previousError) / dt : 0.0;
-        previousError = error;
-
-        if (Math.abs(error) < STEER_TOLERANCE_DEGREES) {
-            return 0.0;
-        }
-
-        double power = STEER_KP * error
-                + STEER_KD * derivative
-                + STEER_KS * Math.signum(error);
-
-        return Range.clip(power, -STEER_MAX_POWER, STEER_MAX_POWER);
+    private double reachableNegativeDegrees() {
+        return (SERVO_REVERSED ? 1.0 - centerTrim : centerTrim) * SERVO_TRAVEL_DEGREES;
     }
 
     private double normalize(double degrees) {
@@ -191,8 +235,8 @@ public class SingleSwerveTeleOp extends OpMode {
         boolean pressed = gamepad1.dpad_left || gamepad1.dpad_right;
 
         if (pressed && !dpadWasPressed) {
-            offsetTrim = normalize(offsetTrim
-                    + (gamepad1.dpad_right ? TRIM_STEP_DEGREES : -TRIM_STEP_DEGREES));
+            centerTrim = Range.clip(centerTrim
+                    + (gamepad1.dpad_right ? TRIM_STEP : -TRIM_STEP), 0.0, 1.0);
         }
 
         dpadWasPressed = pressed;

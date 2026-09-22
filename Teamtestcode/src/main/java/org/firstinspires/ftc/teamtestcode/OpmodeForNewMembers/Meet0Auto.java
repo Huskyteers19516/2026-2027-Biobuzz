@@ -1,21 +1,20 @@
-package org.firstinspires.ftc.teamtestcode.Opmode;
+package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
 
-import com.qualcomm.robotcore.eventloop.opmode.OpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@TeleOp(name = "Meet0 TeleOp", group = "Meet0")
-public class Meet0TeleOp extends OpMode {
+@Autonomous(name = "Meet0 Auto", group = "Meet0")
+public class Meet0Auto extends LinearOpMode {
 
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
     private DcMotor rightBack;
-
     private CRServo leftIntake;
     private CRServo rightIntake;
 
@@ -23,8 +22,23 @@ public class Meet0TeleOp extends OpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
-    @Override
-    public void init() {
+    private void setMotorMode(DcMotor.RunMode mode) {
+        leftFront.setMode(mode);
+        leftBack.setMode(mode);
+        rightFront.setMode(mode);
+        rightBack.setMode(mode);
+    }
+
+    private void setMotorPower(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
+    }
+
+
+@Override
+    public void runOpMode() {
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
@@ -45,6 +59,11 @@ public class Meet0TeleOp extends OpMode {
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
+        leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        leftBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
         leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -61,22 +80,36 @@ public class Meet0TeleOp extends OpMode {
         stopAll();
 
         telemetry.addData("Status", "Initialized");
-    }
+        telemetry.update();
 
-    @Override
-    public void start() {
+        waitForStart();
+
+        if (opModeIsActive()) {
+            telemetry.addData("Auto Path", "Driving out of the starting zone");
+            telemetry.update();
+            driveStraight(0.5,1200);
+            sleep(500);
+
+            // this code should make it leave the starting area .
+
+
+            telemetry.addData("Auto Path", "Parking robot");
+            telemetry.update();
+            driveStraight(-0.3,400);
+            // back up and return to parking
+        }
+
+        if (isStopRequested()) {
+            return;
+        }
+
         runtime.reset();
-    }
 
-    @Override
-    public void loop() {
-        telemetry.addData("Status", "Running");
-        telemetry.addData("Runtime", "%.1f s", runtime.seconds());
-    }
-
-    @Override
-    public void stop() {
         stopAll();
+
+        telemetry.addData("Status", "Finished");
+        telemetry.addData("Runtime", "%.1f s", runtime.seconds());
+        telemetry.update();
     }
 
     private void stopAll() {
@@ -88,4 +121,22 @@ public class Meet0TeleOp extends OpMode {
         rightIntake.setPower(0.0);
         launcher.setPower(0.0);
     }
+
+    public void driveStraight(double power, int ticks) {
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        leftFront.setTargetPosition(ticks);
+        leftBack.setTargetPosition(ticks);
+        rightFront.setTargetPosition(ticks);
+        rightBack.setTargetPosition(ticks);
+
+        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+        setMotorPower(power);
+
+        while (opModeIsActive() && leftFront.isBusy()) {
+
+        }
+        setMotorPower(0);
+    }
+
 }
