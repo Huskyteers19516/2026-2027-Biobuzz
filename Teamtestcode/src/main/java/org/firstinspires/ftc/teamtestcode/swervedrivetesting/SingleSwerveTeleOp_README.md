@@ -4,33 +4,36 @@
 **Code:** `SingleSwerveTeleOp.java`
 
 Tests one swerve module on its own. Push the left stick in a direction and the
-module points that way, then drives. The further you push the stick, the faster
-it drives.
+module turns to point that way, then drives. The further you push the stick, the
+faster it drives.
 
-This tester now steers with a **normal position servo**. There is no analog
-encoder and no feedback loop: the code tells the servo where to go and trusts it
-to get there. Read *Limits of open-loop steering* at the bottom before you rely
-on it.
+This tester is **closed loop**. The steering servo is an **Axon MINI running in
+continuous-rotation mode**, and its analog feedback wire tells the code where the
+module really points. A PD loop drives the servo until the measured angle matches
+the target. Nothing here is guessed.
 
 Use this tester for bench testing a module by itself. If the module is mounted on
 the tank test robot, use **Swerve Drive Testing (1 module)** instead — see
-`README.md` in this folder. **That OpMode needs a different configuration** (CR
-servo plus an analog encoder). Do not assume one configuration works for both.
+`README.md` in this folder. **Both OpModes want the same hardware and the same
+configuration**; the other one just adds the four tank motors.
 
 ---
 
 ## Quick start
 
-1. Configure `swerve_motor` and `swerve_servo` (below). There is **no**
-   `swerve_encoder` for this OpMode.
+1. Configure `swerve_motor`, `swerve_servo` (**CR Servo**) and `swerve_encoder`
+   (**Analog Input**) — see the table below.
 2. Lift the module off the table so the wheel spins freely.
-3. INIT → the servo snaps to its center position. The wheel should be pointing
-   straight forward. If it is not, do the full setup below.
-4. START → hold **A** → dpad left/right until the wheel is exactly forward.
-5. Copy `Center trim` into `SERVO_CENTER`, reinstall.
-6. Release A, push the left stick gently in each direction.
+3. INIT → turn the module by hand. `Raw encoder` on the screen must change. If it
+   does not, stop and fix the feedback wire before doing anything else.
+4. START → hold **A** → work through *First run* below, in order.
+5. Release A, push the left stick gently in each direction.
 
-Everything after this section explains each step in detail.
+INIT does not move anything, and holding **A** cuts all power. After START the
+steering loop is **live even with the stick released** — it holds the last angle
+(`HOLD_ANGLE_ON_RELEASE`), so the servo can drive the module back on its own if
+you knock it off heading. Hold **A** whenever you want to turn the module by
+hand.
 
 ---
 
@@ -39,28 +42,30 @@ Everything after this section explains each step in detail.
 | Part | Job |
 | --- | --- |
 | DC motor | Spins the wheel. Its encoder cable is **not** needed |
-| Position servo (Axon in standard mode, or a hobby servo) | Turns the module |
+| Axon MINI, set to **continuous rotation** | Turns the module. Plugs into a servo port |
+| The Axon's **analog feedback wire** | Plugs into an **analog port**. This is how the code knows the real angle |
 
-Nothing is plugged into an analog port. The Axon's feedback wire, if the module
-still has one, is simply unused by this OpMode.
+The Axon MINI has three wires to a servo port plus a separate feedback wire. Both
+have to be plugged in. Without the feedback wire the code is blind, and this
+OpMode will refuse to keep steering — see *The stall warning*.
 
-The servo has no feedback, so the code has no idea where the module actually
-points. It only knows where it last **told** the servo to go.
+The feedback is **absolute**: it reads the same angle every time the robot powers
+on, so there is no homing step.
 
 ## Robot configuration
 
-| Name (exact) | Device type |
-| --- | --- |
-| `swerve_motor` | DC Motor |
-| `swerve_servo` | **Servo** (not Continuous Rotation Servo) |
+| Name (exact) | Device type | Port |
+| --- | --- | --- |
+| `swerve_motor` | DC Motor | any motor port |
+| `swerve_servo` | **Continuous Rotation Servo** | any servo port |
+| `swerve_encoder` | **Analog Input** | any analog port (0–3 on a hub) |
 
-If `swerve_servo` is configured as a Continuous Rotation Servo, INIT fails with
-*Unable to find a hardware device with name "swerve_servo" and type Servo*. In
-the SDK a CR servo is a completely different kind of device, so the OpMode never
-starts — it cannot run away. Change the device type in the Driver Station
-configuration, not the code.
+If `swerve_servo` is configured as a plain **Servo**, INIT fails with *Unable to
+find a hardware device with name "swerve_servo" and type CRServo*. Fix it in the
+Driver Station configuration, not in the code.
 
-A wrong name makes INIT fail with *Could not find a hardware device*.
+A missing or misspelled name makes INIT fail with *Could not find a hardware
+device*.
 
 ## Angles
 
@@ -72,28 +77,32 @@ Looking down at the module from above:
 | +90° | Right |
 | −90° | Left |
 
-**The module never turns past ±90°.** A standard servo has limited travel, so a
-stick push toward the back is handled by pointing the wheel the *opposite* way
-within ±90° and running the drive motor backward. See *Things that look wrong but
-are normal*.
+`Module angle`, `Target angle`, `Held angle` and `Error` are reported in
+−180°…+180°. `Raw encoder` and `Offset` are reported in 0°…360° — a value like
+250° is normal, and it is the number you copy into `ENCODER_OFFSET_DEGREES`.
 
-The decision to flip is **sticky**. Pointing the stick almost exactly sideways
-sits right on the boundary between "point right and drive forward" and "point
-left and drive backward", and stick noise alone is enough to cross it. Without
-stickiness the servo would be slammed nearly half a turn back and forth every
-loop. So the code only flips once the stick passes 105° from forward, and only
-flips back once it comes inside 75° (`FOLD_HYSTERESIS_DEGREES`). Inside that 30°
-band the wheel simply parks at ±90° and keeps the direction it already had.
+Because the servo spins continuously, the module can reach **any** heading, and
+it always takes the **shorter way round** from where it actually is. A target
+more than 90° away is reached by pointing the wheel the opposite way and running
+the drive motor backward instead — that is the same motion and it is half the
+turn. Telemetry shows `(reversed)` when this happens.
+
+`Module angle` is the measured angle after the zero offset. `Raw encoder` is the
+same reading before the offset, which is the number you copy into
+`ENCODER_OFFSET_DEGREES`.
 
 ## Controls (gamepad 1)
 
 | Input | What happens |
 | --- | --- |
-| Left stick, any direction | Module points that way (folded into ±90°) and drives |
+| Left stick, any direction | Module steers to point that way and drives |
 | Left stick, how far | Speed. Nothing happens until the stick passes 15% |
-| Let go of the stick | Motor stops. The servo **holds** its last angle |
-| Hold **A** | Calibration mode: motor off, servo commanded to center |
-| Dpad left / right **while holding A** | Nudge the center by 0.002 servo units |
+| Let go of the stick | Motor stops. The steering loop **holds** the last angle |
+| Hold **A** | Calibration mode: motor off, servo off, nothing moves |
+| Dpad left / right **while holding A** | Nudge the encoder zero by 0.5° |
+
+Dpad trims are lost when the OpMode stops. Always copy the final number into the
+file.
 
 ---
 
@@ -101,190 +110,333 @@ band the wheel simply parks at ±90° and keeps the direction it already had.
 
 ### During INIT (before START)
 
+Read-only. No hardware is commanded, so it is safe to turn the module by hand.
+
 | Line | Meaning |
 | --- | --- |
-| Servo position | The position command sent to the servo, 0–1 |
-| Center trim | The center position in use right now |
-| Reachable | The largest right / left angle the servo can actually reach with the current center and travel. If either number is under 90, the module cannot make a full ±90° |
-| Extended PWM | `on` only if `USE_EXTENDED_PWM` is true and the servo supports it |
+| Module angle | Measured angle after the zero offset |
+| Raw encoder | Measured angle before the offset |
+| Encoder volts | The raw analog voltage right now |
+| Analog range | `ANALOG_MIN_VOLTAGE`–`ANALOG_MAX_VOLTAGE` in use, and the hub's own max for comparison |
+| Encoder reversed | The value of `ENCODER_REVERSED` |
 
 ### Driving (stick pushed)
 
 | Line | Meaning |
 | --- | --- |
 | Stick | Raw stick position, x (right +) and y (forward +) |
-| Target angle | The commanded angle, always between −90° and +90° |
-| Servo position | The position command sent to the servo, 0–1 |
-| Center trim | The center position in use right now |
-| Ramp | Drive power multiplier while the servo is still swinging, 0 → 1 |
+| Module angle | Where the module actually points right now |
+| Target angle | Where it is trying to point |
+| Error | Target minus actual. Should shrink toward 0 |
+| Steer power | Power sent to the CR servo |
 | Drive power | Power sent to the wheel motor. May show `(reversed)` — that is normal |
-| `!! OUT OF SERVO RANGE` | Only appears when the commanded angle is past what the servo can reach. The servo is sitting at the end of its travel, so the real wheel angle is **less** than `Target angle` says. See troubleshooting |
+| Offset | The encoder zero in use |
+| Encoder volts | The raw analog voltage right now |
+| `!! STALLED / NO FEEDBACK` | The watchdog fired. See *The stall warning* |
 
 ### Stick released
 
-| Line | Meaning |
-| --- | --- |
-| Stick | `released` |
-| Held angle | The last angle commanded. The servo is still holding it |
-| Servo position | The position still being commanded |
-| Drive power | 0.00 |
+Same lines, with `Stick: released`, `Held angle` in place of `Target angle`, and
+`Drive power: 0.00`. Steer power is usually 0 as well, because the loop is inside
+its 2° deadband — but the loop is still running. Push the module off its held
+angle by hand and the servo pushes back. Hold **A** to make it go limp.
 
 ### Calibration mode (holding A)
 
 | Line | Meaning |
 | --- | --- |
-| Servo position | Whatever the trimmed center works out to |
-| Center trim | The number to copy into `SERVO_CENTER` |
-| Reachable | Right / left angles still reachable after the trim. Trimming the center off 0.5 takes travel away from one side |
+| Raw encoder | The number to copy into `ENCODER_OFFSET_DEGREES` |
+| Module angle | Should read about 0 when the wheel is straight forward |
+| Offset | The encoder zero in use, including dpad trim |
+| Encoder volts | The raw analog voltage right now |
+| Volts seen | The lowest and highest voltage seen since the OpMode started. Turn the module all the way round and these become your real `ANALOG_MIN_VOLTAGE` / `ANALOG_MAX_VOLTAGE` |
+| Analog range in use | What the constants are set to now, for comparison |
+| Encoder reversed | The value of `ENCODER_REVERSED` |
 
 ---
 
-## First-time setup
+## First run
 
-Do these in order. Keep a hand on STOP from step 4 on.
+Do these **in order**. Each step assumes the ones before it are done. Keep a hand
+on STOP from step 4 on, and keep the module lifted off the table throughout.
 
-### 1. Lift the module
-The wheel must not touch anything. An open-loop servo will happily push the
-module into a hard stop, so give it room.
+### 1. Is the encoder alive?
 
-### 2. Mechanical zero
-With the robot **off**, set the servo horn on the module so that the wheel points
-straight forward when the servo is near the middle of its travel. Get this as
-close as you can by hand — the trim in step 3 is for the last degree or two, not
-for a horn that is a whole spline tooth off.
+Press INIT. Do not press START. Turn the module by hand through a full turn.
 
-### 3. Trim `SERVO_CENTER`
-1. Press INIT, then START, then hold **A**.
-2. Use dpad left/right until the wheel is exactly straight forward.
-3. Read `Center trim`. Put that number into `SERVO_CENTER` at the top of
-   `SingleSwerveTeleOp.java`.
-4. Press Run in Android Studio to reinstall.
+`Raw encoder` and `Encoder volts` must both change smoothly.
 
-Dpad trims are lost when the OpMode stops, so always copy the final number into
-the file.
+| What you see | Meaning |
+| --- | --- |
+| Numbers move as you turn | Good, go on |
+| Numbers never move | The feedback wire is unplugged, in the wrong port, or broken. Or `swerve_encoder` is on the wrong analog port |
+| Numbers jump around while you hold the module still | Bad connection or a noisy ground. Fix it now — the PD loop cannot work on a noisy signal |
 
-### 4. Check `SERVO_REVERSED`
-Release A. Push the left stick a little to the **right**. The wheel must turn to
-the **right**.
+Do not skip this step. Everything below assumes a live encoder.
 
-If it turns left, set `SERVO_REVERSED = true` and reinstall. Recheck the center
-afterwards — reversing mirrors the angles around the center, it does not move the
-center itself.
+### 2. Which way does the encoder count?
 
-### 5. Check `DRIVE_REVERSED`
-Push the stick straight forward. The wheel should face forward and roll forward.
-If it faces forward but rolls **backward**, set `DRIVE_REVERSED = true` and
+Still in calibration mode (START, then hold **A** — all power is off).
+
+**The one-line test: turn the wheel to the RIGHT by hand. `Module angle` must go
+UP.**
+
+`Module angle` jumps once from +180° to −180° somewhere in the turn. That is the
+wrap, not a direction error. If you land on it, turn the wheel a quarter turn
+away and try again. `Encoder volts` is the tiebreaker: with
+`ENCODER_REVERSED = false` the voltage must **rise** as the wheel turns right,
+except across the one seam.
+
+| What you see | Fix |
+| --- | --- |
+| Turning right makes `Module angle` rise | `ENCODER_REVERSED = false` — leave it |
+| Turning right makes `Module angle` fall | `ENCODER_REVERSED = true` — set it and reinstall |
+
+Do this **before** setting the zero. Flipping `ENCODER_REVERSED` changes what
+every raw reading means, so a zero measured with the wrong value is wrong.
+
+This matters more than it looks. If the encoder counts the wrong way, the
+steering loop still settles — but on the **mirrored** heading, so pushing the
+stick right points the wheel left. `STEER_REVERSED` does **not** fix that: it
+flips the servo, not the measurement, and with it the loop would run away instead
+of settling. One constant fixes the measurement, the other fixes the motor. Get
+this one right first.
+
+### 3. Set the zero
+
+1. Still holding **A**, point the wheel straight forward by hand, as accurately
+   as you can.
+2. Read `Raw encoder`.
+3. Put that number into `ENCODER_OFFSET_DEGREES` at the top of
+   `SingleSwerveTeleOp.java` and reinstall.
+4. Hold **A** again. With the wheel straight forward, `Module angle` must now
+   read about 0.
+
+For the last degree or two, use dpad left/right while holding **A** and watch
+`Module angle`, then copy the `Offset` line into `ENCODER_OFFSET_DEGREES`.
+`Offset` is kept in the same 0°…360° range as `Raw encoder`, so the two numbers
+stay comparable.
+
+While you are here: turn the module slowly through a full turn and look at
+`Volts seen`. If the lowest and highest are not close to `ANALOG_MIN_VOLTAGE` and
+`ANALOG_MAX_VOLTAGE`, fix those constants — see *Analog range* below — and then
+redo this step, because changing the range changes every angle.
+
+### 4. Which way does the servo turn?
+
+Release **A**. Push the left stick a **little** to the right.
+
+`Error` must get **smaller** every loop and the module must settle.
+
+**If the module spins without stopping, or `Error` grows, press STOP
+immediately.** Set `STEER_REVERSED = true` and reinstall.
+
+If instead the module settles neatly but on the opposite side from where you
+pushed the stick, the problem is step 2, not this one. Go back and fix
+`ENCODER_REVERSED`.
+
+### 5. Which way does the wheel roll?
+
+Push the stick straight forward. The wheel should point forward and roll
+**forward**.
+
+If it points forward but rolls backward, set `DRIVE_REVERSED = true` and
 reinstall.
 
-### 6. Check `SERVO_TRAVEL_DEGREES`
-This is the one number a standard servo cannot tell you, and getting it wrong
-makes every angle wrong in proportion.
+### 6. Tune the PD loop
 
-1. Push the stick straight **right** and hold it. That commands +90°.
-2. Look at the module. The wheel should be at a real 90° to straight forward.
-3. Repeat straight **left** for −90°.
-
-| What you see at a commanded 90° | Fix |
-| --- | --- |
-| Wheel turns noticeably **less** than 90° | `SERVO_TRAVEL_DEGREES` is too big — lower it |
-| Wheel turns noticeably **more** than 90° | `SERVO_TRAVEL_DEGREES` is too small — raise it |
-| Servo buzzes or hits a hard stop | Travel is too small for ±90°, or the horn is off-center. Redo steps 2–3 |
-| `!! OUT OF SERVO RANGE` on the screen | The commanded angle is past the end of the servo's travel, so it is not reaching 90° no matter what the constant says. Check `Reachable` — if one side is much smaller than the other the **center trim** is off, not the travel |
-
-An Axon in standard mode is about 270°. A typical hobby servo is about 180°. If
-the module is geared (the servo turns more than the module does), the correct
-value is the servo's travel divided by the gear ratio — measure it, do not guess.
-
-### 7. Check all four directions
-Push forward, right, backward, left. Forward and backward should both point the
-wheel forward, with the motor running the opposite way for backward.
+Only once steps 1–5 are all correct. See *Tuning* below.
 
 ---
 
-## Settings
+## Constants
 
 All of these are at the top of `SingleSwerveTeleOp.java`. Reinstall after any
 change.
 
 | Constant | Default | What it does |
 | --- | --- | --- |
-| `SERVO_TRAVEL_DEGREES` | 270.0 | How many degrees the module turns across the servo's full 0–1 range. 270 for an Axon in standard mode, 180 for a typical hobby servo. Set in setup step 6 |
-| `SERVO_CENTER` | 0.5 | Servo position where the wheel points straight forward. Set in setup step 3 |
-| `SERVO_REVERSED` | false | Flip if the wheel turns the wrong way |
-| `DRIVE_REVERSED` | false | Flip if the wheel rolls backward when pointing forward |
+| `ENCODER_OFFSET_DEGREES` | 0.0 | Raw encoder reading when the wheel points straight forward. Set in first-run step 3 |
+| `ENCODER_REVERSED` | false | Set true when the analog reading **falls** as the wheel turns right. Set in first-run step 2 |
+| `STEER_REVERSED` | false | Set true when the servo drives the module **away** from the target. Set in first-run step 4 |
+| `DRIVE_REVERSED` | false | Set true when the wheel rolls backward while pointing forward |
+| `ANALOG_MIN_VOLTAGE` | 0.0 | Voltage the Axon reports at its lowest angle |
+| `ANALOG_MAX_VOLTAGE` | 3.3 | Voltage the Axon reports at its highest angle |
+| `STEER_KP` | 0.012 | Proportional gain, power per degree of error |
+| `STEER_KD` | 0.0006 | Damping, works against overshoot |
+| `STEER_KS` | 0.05 | Constant push that gets the module over its own friction |
+| `STEER_TOLERANCE_DEGREES` | 2.0 | Inside this error the servo is given 0 power, so it stops buzzing |
+| `STEER_MAX_POWER` | 1.0 | Power ceiling for the servo. Lower it while tuning |
 | `STICK_DEADZONE` | 0.15 | How far the stick must move before anything happens |
 | `DRIVE_POWER_SCALE` | 1.0 | Wheel speed limit. 0.5 = half speed |
-| `TRIM_STEP` | 0.002 | How much one dpad press moves the center |
-| `SERVO_SLEW_SECONDS` | 0.25 | How long a full 90° swing is assumed to take. Used only for the drive power ramp |
-| `FOLD_HYSTERESIS_DEGREES` | 15.0 | How far past sideways the stick must go before the wheel flips to the other side and the motor reverses. Stops the module flapping when the stick sits near sideways. Raise it if it still flips too eagerly |
-| `USE_EXTENDED_PWM` | false | Widen the servo's pulse range (see below) |
-| `PWM_LOWER_MICROSECONDS` | 500.0 | Low end of the extended pulse range |
-| `PWM_UPPER_MICROSECONDS` | 2500.0 | High end of the extended pulse range |
+| `TRIM_STEP_DEGREES` | 0.5 | How much one dpad press moves the zero |
+| `FOLD_HYSTERESIS_DEGREES` | 15.0 | How far past 90° the error must go before the module flips to the other side and the motor reverses. See *The hysteresis trade-off* |
+| `HOLD_ANGLE_ON_RELEASE` | true | true: the loop keeps holding the last angle after you let go. false: everything goes limp and the module can be turned by hand |
+| `STALL_POWER_THRESHOLD` | 0.25 | Steer power above which the watchdog starts watching. With the default gains that is an error of about **16.7°** — `(0.25 − STEER_KS) / STEER_KP`. Lowering `STEER_KP` arms the watchdog at a smaller error |
+| `STALL_TIME_SECONDS` | 2.0 | How long steering may be commanded above that power without the error shrinking before the warning fires |
+| `STALL_MOVE_DEGREES` | 2.0 | How much closer to the target the module must get to count as progress |
 
-### Extended PWM range
+### Analog range
 
-Servos like the Axon reach their full travel only with a pulse range wider than
-the default. Setting `USE_EXTENDED_PWM = true` applies
-`PWM_LOWER_MICROSECONDS`–`PWM_UPPER_MICROSECONDS` to the servo at INIT, if the
-hub supports it. Telemetry shows `Extended PWM: on` when it was applied, and
-`off` when it was not.
+The code turns a voltage into an angle with
+`(volts − ANALOG_MIN_VOLTAGE) / (ANALOG_MAX_VOLTAGE − ANALOG_MIN_VOLTAGE) × 360°`.
 
-Changing this changes the real travel, so **redo setup steps 3 and 6** after
-turning it on or off.
+It does **not** assume 0 V to the hub's maximum, because a real Axon MINI often
+swings over a narrower band. If you assume a 3.3 V swing on a servo that really
+delivers 0.1–3.2 V, every angle is scaled and offset slightly wrong: the zero can
+be trimmed away, but a 90° command lands a few degrees short, and the error grows
+the further you turn from zero.
 
-Do not widen the range on a servo whose datasheet does not allow it. Too wide a
-pulse drives the servo into its internal stops and it will buzz and overheat.
+To measure yours: hold **A**, turn the module slowly through a full turn, and read
+`Volts seen`. Those two numbers are your constants. Redo the zero afterwards.
+
+The voltage wraps sharply from the maximum back to the minimum at one point in
+the turn. That jump is the seam in the sensor, not a fault.
 
 ---
 
-## How the drive power ramp works
+## Tuning
 
-There is no feedback, so the code cannot tell when the servo has finished
-turning. Instead it keeps a **guess at where the servo is**, and moves that guess
-toward the commanded angle at a fixed speed — 90° per `SERVO_SLEW_SECONDS`, so
-360° per second with the default 0.25.
+Start with `STEER_KD = 0` and `STEER_KS = 0`, and lower `STEER_MAX_POWER` to
+about 0.4 so mistakes are slow. Push the stick to a fixed direction and watch
+`Error`.
 
-Drive power is then scaled by how close the guess is to the command: exactly on
-it gives full power, 90° behind gives zero. `Ramp` in telemetry shows that
-multiplier.
-
-The point of tracking a position rather than timing each jump is that it behaves
-sensibly whichever way you move the stick:
-
-| What you do | What happens |
+| What you see | Change |
 | --- | --- |
-| Flick the stick 90° in one frame | The guess is far behind, so power starts near 0 and reaches full after about `SERVO_SLEW_SECONDS` |
-| Sweep the stick around steadily | The guess trails just behind, so you keep most of your power instead of losing it all |
-| Nudge the stick mid-swing | The guess is unaffected, so the ramp already in progress keeps running instead of restarting short |
-| Let go mid-swing | The motor stops, but the guess keeps catching up, so driving again immediately does not get a false full-power start |
+| Turns slowly, or stops short of the target | Raise `STEER_KP` |
+| Overshoots and wobbles back and forth | Lower `STEER_KP`, then raise `STEER_KD` |
+| Gets within a few degrees but will not finish | Raise `STEER_KS` |
+| Twitches or hums when it is already pointed right | Raise `STEER_TOLERANCE_DEGREES` |
+| Jerky and noisy at every small correction | Lower `STEER_KD` — D amplifies encoder noise |
+| Full-power jolt the instant the stick moves | Not the D term. It is measured on the module angle, not on the error, so moving the stick does not spike it. Look at `STEER_KP` and `STEER_MAX_POWER` |
+| Too fast to watch | Lower `STEER_MAX_POWER` |
 
-This is still a guess, not a measurement. If the wheel scrubs sideways after a
-big stick swing, raise `SERVO_SLEW_SECONDS`. If it feels sluggish to start, lower
-it.
+Raise `STEER_MAX_POWER` back to 1.0 when you are happy, then check nothing
+overshoots at full speed.
+
+`STEER_KS` is a static push, not a gain: it is added at full size as soon as the
+error leaves the tolerance band, so too much of it makes the module hunt around
+the target instead of settling.
+
+---
+
+## The hysteresis trade-off
+
+The module can drive a direction two ways: point the wheel at the target and run
+the motor forward, or point it 180° the other way and run the motor backward. The
+code picks whichever is the shorter turn from the **measured** angle.
+
+Exactly at 90° of error the two are equally short, and that is a problem. Stick
+noise and encoder noise are enough to keep crossing that line, and each crossing
+asks the module for a 180° turn. Held near sideways, the module would slam back
+and forth for as long as you held the stick.
+
+`FOLD_HYSTERESIS_DEGREES` fixes this. The module only flips once the error passes
+**105°** (90 + 15), not 90°. Once it has flipped, the error to its new target is
+at most 75°, which is well inside the band — so the flip cannot immediately undo
+itself, and it cannot get stuck either, because only one of the two choices can
+ever be outside the band at a time.
+
+**The cost:** in a 30° window around sideways, the module keeps the side it
+already had, so it can be steering to an error of up to 105° instead of up to
+90°. It gets there — it is just a slightly longer turn than strictly necessary.
+While the error is over 90° the drive power is **exactly 0**, not just low,
+because the cosine scaling is clipped at 0; a raw cosine would have quietly
+driven the wheel backwards instead. The wheel starts pulling as the module comes
+round inside 90°.
+
+Raise the constant if the module still flips too eagerly. Lower it toward 0 if
+you would rather always have the shortest possible turn and you do not mind the
+flapping. Do not make it negative.
+
+---
+
+## The stall warning
+
+The feedback wire is a single wire on a moving module. It comes loose. When it
+does, the naive behaviour is the dangerous one: the code sees an error that never
+shrinks, so it drives the servo at full power forever, and keeps driving the
+wheel while it does.
+
+The watchdog stops that. It watches **progress**, not movement: if steering power
+stays above `STALL_POWER_THRESHOLD` for `STALL_TIME_SECONDS` without `Error`
+getting at least `STALL_MOVE_DEGREES` smaller than the best it has managed since
+the target last changed, the screen shows:
+
+```
+!! STALLED / NO FEEDBACK - steering and drive cut
+```
+
+and **both** the servo and the drive motor are set to 0. The drive motor is cut
+too, because a stall means the code does not know where the wheel is pointing, so
+driving it is a guess.
+
+It clears when the module really gets closer to the target — turn it by hand
+towards where the stick is pointing — or when you hold **A**.
+
+Progress is the right test rather than raw movement. A feedback wire that has
+come loose leaves a floating analog input, which does not sit still: it jitters.
+A watchdog that cleared on any 2° of movement would be reset by that jitter and
+never fire, which is the one case it exists for. Watching the error shrink
+instead also catches a **runaway** — a module turning fast in the wrong direction
+moves plenty, but its error only grows.
+
+**It is not a complete safety net.** With a dead wire the reported angle is stuck
+at one number, and if the stick happens to ask for a direction within about 17°
+of that number the error never gets big enough to arm the watchdog, so nothing is
+reported while the wheel still drives. That 33°-wide window is why first-run step
+1 — turn the module by hand at INIT and watch `Raw encoder` change — is the check
+that actually matters. Do not skip it and rely on the warning.
+
+| What fired it | How to tell |
+| --- | --- |
+| Feedback wire unplugged or broken | `Encoder volts` sits at a fixed number, often 0.000, no matter how you turn the module by hand |
+| Wrong analog port | Same as above. Check the configuration against the port the wire is actually in |
+| Module is mechanically jammed | `Encoder volts` changes when you free the module by hand |
+| Servo horn stripped or loose | The servo is audibly turning but the module is not |
+| Gains far too low | Steer power sits just over the threshold and the module creeps slower than about 1° per second. Raise `STEER_KP` / `STEER_KS` |
+
+A false alarm is possible if the module is genuinely turning but very slowly —
+slower than `STALL_MOVE_DEGREES` of error per `STALL_TIME_SECONDS`, i.e. about 1°
+per second with the defaults. Raise `STALL_TIME_SECONDS` if that happens — but
+check the mechanics and the gains first, because a module that slow is not going
+to be useful on the robot either.
 
 ---
 
 ## Things that look wrong but are normal
 
 **The wheel drives backward when you push the stick backward.**
-The module only turns within ±90°, so a backward target is handled by keeping the
-wheel pointed forward and running the motor in reverse. It moves the same way.
-Telemetry shows `(reversed)`.
+Pointing the wheel forward and reversing the motor is the same motion as turning
+180°, and it is a much shorter turn. Telemetry shows `(reversed)`.
 
-**The wheel speeds up gradually after a big turn.**
-That is the drive power ramp described above, so the wheel does not scrub
-sideways while the servo is still swinging.
+**The wheel speeds up gradually as the module lines up.**
+Drive power is scaled by the cosine of the steering error, so it fades in as the
+error shrinks. It stops the wheel scrubbing sideways mid-turn.
 
-**The module stays put when you let go of the stick.**
-A position servo holds its last command. This is deliberate — the module keeps its
-heading like a caster instead of flopping. You cannot turn it by hand while the
-OpMode is running.
+**The module keeps its heading when you let go of the stick.**
+`HOLD_ANGLE_ON_RELEASE` is true, so the loop keeps holding. You will not be able
+to turn it by hand while the OpMode is running. Set the constant false if you
+want it to go limp instead.
+
+**The steer power reads 0.00 while the module is pointed correctly.**
+That is `STEER_TOLERANCE_DEGREES`. Inside 2° the servo is deliberately switched
+off so it does not hum.
+
+**The module parks slightly off what the stick asks for near sideways.**
+That is the fold hysteresis, up to 15° in a 30° window. See above.
+
+**The wheel does not spin at all while the module is still more than 90° from the
+target.**
+The cosine drive scaling is clipped at 0, so there is no drive power until the
+module is pointing within 90° of where it is going. It starts pulling as the
+module comes round.
 
 **Nothing happens with a tiny stick push.**
 That is the 15% deadzone (`STICK_DEADZONE`).
 
-**The servo snaps to center the instant you press INIT.**
-Expected. Keep fingers out of the module when you press INIT.
+**`Encoder volts` jumps from the top of the range to the bottom once per turn.**
+That is the seam in the absolute sensor. Expected.
 
 ---
 
@@ -292,57 +444,18 @@ Expected. Keep fingers out of the module when you press INIT.
 
 | Problem | Fix |
 | --- | --- |
-| INIT fails: *Could not find a hardware device* | A configuration name is wrong |
-| INIT fails: *Unable to find a hardware device with name "swerve_servo" and type Servo* | `swerve_servo` is configured as a Continuous Rotation Servo. Change it to Servo |
-| Module twitches hard back and forth when the stick is held sideways | The servo fitted is physically in CR mode, or the horn is binding. This is **not** the fold boundary — that has hysteresis and cannot chatter |
-| Stick right makes the wheel face left | Set `SERVO_REVERSED = true`, then recheck the center |
-| Wheel faces forward but rolls backward | Flip `DRIVE_REVERSED` |
-| Wheel is consistently a few degrees off in both directions | Redo the center trim (setup step 3) |
-| Small angles are right but 90° falls short or overshoots | `SERVO_TRAVEL_DEGREES` is wrong (setup step 6) |
-| 90° falls short on **one side only**, `!! OUT OF SERVO RANGE` showing | The center trim pushed the usable range off one end. Re-centre the horn mechanically (setup step 2) so the trim can stay near 0.5, rather than lowering `SERVO_TRAVEL_DEGREES` |
-| Servo buzzes and gets hot while holding | It is jammed against a hard stop or the module. Power down and check travel and the horn position |
-| Module points correctly but wheel does not spin | `swerve_motor` wiring, or `DRIVE_POWER_SCALE` is 0 |
-| Wheel scrubs sideways right after a big stick swing | Raise `SERVO_SLEW_SECONDS` |
-| Module does not reach full travel | Try `USE_EXTENDED_PWM = true`, then redo steps 3 and 6 |
-
----
-
-## Limits of open-loop steering
-
-The old version of this tester ran a CR servo against an analog encoder, so the
-code always knew the module's real angle. This version does not. That costs you
-three things, and you have to work around them by hand.
-
-**No way to detect a stalled or blocked module.**
-If a wire snags the module, the servo horn strips, or the module jams against the
-frame, the code sees nothing. Telemetry keeps reporting the commanded angle and
-the drive motor keeps pushing on a wheel pointing the wrong way. Watch the module
-itself, not the screen, and stop if it does not move.
-
-**The zero has to be re-checked mechanically.**
-With feedback, the zero was a number you read off the encoder. Now it is a
-physical relationship between the servo horn and the wheel. Any time the horn is
-removed, slips, or is remounted a spline tooth over, every angle shifts and
-nothing in telemetry says so. Re-do setup steps 2 and 3 after any mechanical work
-on the module.
-
-**A wrong `SERVO_TRAVEL_DEGREES` makes every angle proportionally wrong.**
-The code converts degrees to a servo position by dividing by this constant. If it
-is 180 and the real travel is 270, every angle comes out at two thirds of what you
-asked for — 90° becomes 60°, and small angles are wrong by too little to notice
-until the module is on a real drivetrain. Verify it with the ±90° check, do not
-copy it from another robot.
-
-**Also:** the commanded angle is folded into ±90° relative to the *zero*, not
-relative to where the module currently points. With feedback the module took the
-shorter path from its actual angle. Now it always swings back through center, so
-a hard left-to-right stick flick is a full 180° of servo travel.
-
-Because that fold is decided against a fixed boundary instead of a lagging
-measurement, it needs the hysteresis described under *Angles* to stay still near
-sideways. The cost is that in a 30° band around sideways the wheel parks at ±90°
-and is up to 15° off what the stick asks for. The closed-loop version had no such
-band. If you are testing behaviour right at sideways, approach it from one side
-and note which way you came from.
-
-If you need any of this back, use the CRServo version described in `README.md`.
+| INIT fails: *Could not find a hardware device* | A configuration name is wrong, or `swerve_encoder` is missing |
+| INIT fails: *Unable to find … type CRServo* | `swerve_servo` is configured as a plain Servo. Change it to Continuous Rotation Servo |
+| `Raw encoder` never changes | Feedback wire, analog port, or the `swerve_encoder` configuration. First-run step 1 |
+| Module spins and never stops, `Error` grows | STOP. Set `STEER_REVERSED = true` |
+| Module settles, but stick right points the wheel left | `ENCODER_REVERSED` is wrong. First-run step 2. Do **not** reach for `STEER_REVERSED` — that makes it run away instead |
+| Wheel faces forward but rolls backward | Set `DRIVE_REVERSED = true` |
+| Every angle is off by the same amount | Redo the zero, first-run step 3 |
+| Small angles are right, big angles drift further off | `ANALOG_MIN_VOLTAGE` / `ANALOG_MAX_VOLTAGE` are wrong. Measure them with `Volts seen` |
+| `!! STALLED / NO FEEDBACK` | See *The stall warning* |
+| Module hunts around the target | Lower `STEER_KS`, then `STEER_KP` |
+| Module buzzes while pointed correctly | Raise `STEER_TOLERANCE_DEGREES` |
+| Module slams 180° back and forth with the stick near sideways | Raise `FOLD_HYSTERESIS_DEGREES` |
+| Module points correctly but the wheel does not spin | `swerve_motor` wiring, or `DRIVE_POWER_SCALE` is 0 |
+| Module drifts off angle after you let go | `HOLD_ANGLE_ON_RELEASE` is false, or the tolerance band is too wide |
+| Numbers are right on the bench and wrong on the robot | The horn slipped. Redo first-run step 3 after any mechanical work |

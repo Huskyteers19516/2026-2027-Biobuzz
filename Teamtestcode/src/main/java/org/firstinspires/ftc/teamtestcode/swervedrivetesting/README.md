@@ -3,12 +3,12 @@
 Both OpModes make the swerve module point where the left stick points and then
 drive. Push the stick further to go faster.
 
-**They no longer use the same steering hardware.** Read the next section before
-you configure anything.
+**They use the same steering hardware and the same configuration.** The only
+difference is that one of them also drives the four tank motors.
 
 | Name on the Driver Station | Steering hardware | Use it when |
 | --- | --- | --- |
-| **Single Swerve Module** | **Position Servo**, no feedback | Testing the module by itself |
+| **Single Swerve Module** | **CR Servo + analog encoder** | Testing the module by itself |
 | **Swerve Drive Testing (1 module)** | **CR Servo + analog encoder** | The module is mounted on the tank test robot. Adds the 4 tank motors |
 
 Step-by-step guide for Single Swerve Module:
@@ -16,34 +16,30 @@ Step-by-step guide for Single Swerve Module:
 
 ---
 
-## The configuration trap — read this first
+## One configuration for both
 
-Both OpModes ask for a device named `swerve_servo`, but they need it configured
-as **different device types**. A configuration that works for one will fail or
-misbehave on the other.
+The steering servo is an **Axon MINI in continuous-rotation mode**. It needs two
+things plugged in: the three-wire servo cable into a servo port, and the analog
+feedback wire into an analog port. Both OpModes read that feedback and close a PD
+loop around it.
 
 | | Single Swerve Module | Swerve Drive Testing (1 module) |
 | --- | --- | --- |
-| `swerve_servo` device type | **Servo** | **Continuous Rotation Servo** |
-| `swerve_encoder` needed? | **No** — do not configure it | **Yes** — Analog Input |
+| `swerve_servo` device type | **Continuous Rotation Servo** | **Continuous Rotation Servo** |
+| `swerve_encoder` needed? | **Yes** — Analog Input | **Yes** — Analog Input |
+| Tank motors needed? | **No** | **Yes** — all four |
 
-What goes wrong if you get it backwards:
+So one saved configuration serves both, as long as it also has the four tank
+motors in it. Single Swerve Module simply ignores them.
+
+What goes wrong:
 
 | Mistake | Symptom |
 | --- | --- |
-| Running Single Swerve Module with `swerve_servo` set to CR Servo | INIT fails: *Unable to find a hardware device with name "swerve_servo" and type Servo*. The OpMode never starts |
-| Running Swerve Drive Testing with `swerve_servo` set to Servo | INIT fails, or the module never turns |
-| Running Swerve Drive Testing with no `swerve_encoder` | INIT fails: *Could not find a hardware device* |
-| Leaving `swerve_encoder` configured while running Single Swerve Module | Harmless — that OpMode ignores it |
-
-The practical fix: keep **two saved configurations** on the Driver Station, named
-after the OpMode you use them with, and switch between them. Do not try to make
-one configuration serve both.
-
-Mechanically, the module also has to actually have the right servo fitted. These
-are not two settings for one servo — an Axon in CR mode and an Axon in standard
-position mode are different modes of the physical servo, and the standard-mode
-one does not need its feedback wire connected.
+| `swerve_servo` configured as a plain **Servo** | INIT fails: *Unable to find a hardware device with name "swerve_servo" and type CRServo*. The OpMode never starts |
+| No `swerve_encoder` configured | INIT fails: *Could not find a hardware device* |
+| Feedback wire not plugged in, or in the wrong analog port | INIT looks fine and `Raw encoder` never changes. Single Swerve Module usually shows `!! STALLED / NO FEEDBACK` and cuts power a couple of seconds after you push the stick — but **not** if the frozen reading happens to sit within about 17° of where you are pushing, in which case it drives a blind module and says nothing. Always do the by-hand check at INIT |
+| Running Swerve Drive Testing with no tank motors configured | INIT fails: *Could not find a hardware device*. Use Single Swerve Module on a bare module instead |
 
 ---
 
@@ -52,9 +48,8 @@ one does not need its feedback wire connected.
 | Config name | Device | Used by | Notes |
 | --- | --- | --- | --- |
 | `swerve_motor` | DC Motor | both | drives the wheel |
-| `swerve_servo` | **Servo** | Single Swerve Module | position servo, turns the module, no feedback |
-| `swerve_servo` | **Continuous Rotation Servo** | Swerve Drive Testing | Axon in CR mode, turns the module |
-| `swerve_encoder` | Analog Input | **Swerve Drive Testing only** | the Axon's feedback wire, in an analog port |
+| `swerve_servo` | **Continuous Rotation Servo** | both | Axon MINI in CR mode, turns the module |
+| `swerve_encoder` | **Analog Input** | both | the Axon's feedback wire, in an analog port |
 | `left_front`, `left_back`, `right_front`, `right_back` | DC Motor | **Swerve Drive Testing only** | tank drive |
 
 ---
@@ -63,42 +58,66 @@ one does not need its feedback wire connected.
 
 ### Single Swerve Module — `SingleSwerveTeleOp.java`
 
-Open loop. The code commands a servo position and never finds out whether the
-module got there.
+Closed loop. A CR servo is driven by a PD + static-friction loop against the
+absolute analog encoder, so the module knows its real angle at power-on with no
+homing step.
 
-- The commanded angle is always folded into **±90° of straight forward**, and the
-  drive motor reverses when folded. The module never swings past ±90°.
-- Releasing the stick stops the motor; the servo **holds** its last angle, so the
-  module keeps its heading and cannot be turned by hand.
-- The flip is **sticky**: the stick has to pass 105° from forward before the wheel
-  swaps sides, and come back inside 75° before it swaps back
-  (`FOLD_HYSTERESIS_DEGREES`). Without that, stick noise at exactly sideways would
-  make the servo slam back and forth every loop.
-- Drive power fades in using a **modelled** servo position: the code assumes the
-  servo covers 90° per `SERVO_SLEW_SECONDS` and scales power by how far its guess
-  still is from the command. There is no error signal to fade it in with, so this
-  stands in for one.
-- Calibration (hold **A**) commands the servo to center so the wheel can be
-  squared up; dpad left/right trims `SERVO_CENTER` live.
-- Key constants: `SERVO_TRAVEL_DEGREES`, `SERVO_CENTER`, `SERVO_REVERSED`,
-  `DRIVE_REVERSED`, `SERVO_SLEW_SECONDS`, `FOLD_HYSTERESIS_DEGREES`.
+- The commanded angle is folded to the **shorter path from the measured angle**,
+  and the drive motor reverses when folded.
+- That flip is **sticky**: the error has to pass 105° before the module swaps
+  sides (`FOLD_HYSTERESIS_DEGREES`). Without it, noise at exactly 90° of error
+  would make the module slam 180° back and forth every loop. The cost is up to
+  15° of extra turn in a 30° window around sideways.
+- Drive power is scaled by the cosine of the steering error, clipped at 0, so the
+  wheel fades in as the module lines up and does not turn at all while the module
+  is more than 90° away.
+- The damping term is taken on the **measured** angle, not on the error, so moving
+  the stick or flipping sides does not throw a one-loop full-power spike at the
+  servo.
+- Releasing the stick stops the motor and **holds** the last angle with the
+  steering loop (`HOLD_ANGLE_ON_RELEASE`). Set that false to make the module go
+  limp instead.
+- A **stall watchdog** cuts steering and drive, and shows
+  `!! STALLED / NO FEEDBACK`, when steering is commanded above
+  `STALL_POWER_THRESHOLD` for `STALL_TIME_SECONDS` without `Error` shrinking by
+  `STALL_MOVE_DEGREES`. It watches progress rather than raw movement, so a
+  jittering floating input on a broken feedback wire still trips it, and so does
+  a runaway that is turning fast the wrong way. It stops the servo being driven
+  at full power forever. It is a backstop, not a substitute for the by-hand
+  encoder check at INIT — see the note in the table above.
+- The analog range is configurable (`ANALOG_MIN_VOLTAGE` / `ANALOG_MAX_VOLTAGE`)
+  rather than assumed to be 0 V to the hub maximum, and calibration telemetry
+  shows the lowest and highest voltage actually seen so the real range can be
+  measured.
+- `ENCODER_REVERSED` fixes an encoder that counts the wrong way round. This is a
+  different fault from `STEER_REVERSED` and the two are not interchangeable —
+  see below.
+- Calibration (hold **A**) cuts all power; dpad left/right nudges the encoder zero
+  by 0.5°.
+- INIT telemetry is read-only, so the module can safely be turned by hand before
+  START to check the encoder is alive.
+- Key constants: `ENCODER_OFFSET_DEGREES`, `ENCODER_REVERSED`, `STEER_REVERSED`,
+  `DRIVE_REVERSED`, `ANALOG_MIN_VOLTAGE`, `ANALOG_MAX_VOLTAGE`, `STEER_KP`,
+  `STEER_KD`, `STEER_KS`, `STEER_TOLERANCE_DEGREES`, `STEER_MAX_POWER`,
+  `FOLD_HYSTERESIS_DEGREES`, `HOLD_ANGLE_ON_RELEASE`, `STALL_POWER_THRESHOLD`,
+  `STALL_TIME_SECONDS`, `STALL_MOVE_DEGREES`.
 
 Full setup, telemetry and troubleshooting: [SingleSwerveTeleOp_README.md](SingleSwerveTeleOp_README.md).
 
 ### Swerve Drive Testing (1 module) — `swerveDriveTesting.java`
 
-Closed loop. A CR servo is driven by a PD + static-friction loop against the
-absolute analog encoder, so the module knows its real angle at power-on with no
-homing step. Also drives the 4 tank motors from the right stick.
+The same closed-loop steering, plus the 4 tank motors from the right stick.
 
-- The commanded angle is folded to the **shorter path from the measured angle**,
-  so the module never turns more than 90° from where it actually is.
-- Drive power is scaled by the cosine of the steering error, so the wheel fades in
-  as the module lines up.
+- Same fold to the shorter path from the measured angle, but **without**
+  hysteresis — it flips at exactly 90° of error, so it can chatter with the stick
+  held near sideways.
+- Same cosine drive scaling (`SCALE_DRIVE_BY_ERROR`).
 - Releasing the stick cuts power to both the motor and the servo — the module goes
-  limp and can be turned by hand.
-- Calibration (hold **A**) cuts all power; dpad left/right nudges the encoder zero
-  by 0.5°.
+  limp and can be turned by hand. It does not hold its angle.
+- No `ENCODER_REVERSED`, no configurable analog range (it assumes 0 V to the hub
+  maximum), and no stall watchdog.
+- Calibration (hold **A**) cuts all power including the tank motors; dpad
+  left/right nudges the encoder zero by 0.5°.
 - Key constants: `ENCODER_OFFSET_DEGREES`, `STEER_REVERSED`, `STEER_KP`,
   `STEER_KD`, `STEER_KS`, `STEER_TOLERANCE_DEGREES`, `STEER_MAX_POWER`,
   `SCALE_DRIVE_BY_ERROR`, `TANK_POWER_SCALE`.
@@ -106,10 +125,27 @@ homing step. Also drives the 4 tank motors from the right stick.
 Note it has **no** `DRIVE_REVERSED` constant — flipping the drive direction there
 is a code change in `init()`, unlike Single Swerve Module.
 
-The two files have **separate constants** and now **different steering models**.
-Do not copy numbers between them: `SERVO_CENTER` and `ENCODER_OFFSET_DEGREES`
-mean completely different things, and the PD gains have no counterpart in the
-position-servo version.
+The two files keep **separate copies** of their constants. They mean the same
+things, so a zero or a set of gains measured on one module is worth carrying
+across by hand — but nothing is shared in code, and Single Swerve Module has
+several constants the other one does not.
+
+---
+
+## `ENCODER_REVERSED` vs `STEER_REVERSED`
+
+Two different faults that look similar for about one second, and only Single
+Swerve Module can fix both.
+
+| What you see | Cause | Fix |
+| --- | --- | --- |
+| The module settles neatly, but on the **mirrored** heading — stick right points the wheel left | The encoder counts the wrong way | `ENCODER_REVERSED = true` |
+| The module **runs away** — `Error` grows and it keeps spinning | The servo pushes away from the target | `STEER_REVERSED = true` |
+
+Flipping `STEER_REVERSED` on a reversed encoder makes the loop converge again, so
+it looks like a fix, but it converges on the mirrored heading. Test the encoder
+direction first, by hand, with power off: **hold A, turn the wheel right,
+`Module angle` must rise.**
 
 ---
 
@@ -119,27 +155,30 @@ position-servo version.
 | --- | --- | --- |
 | Left stick | Aim and drive the module | Aim and drive the module |
 | Right stick up/down | — | Tank robot forward / backward |
-| Release left stick | Motor off, servo **holds** its angle | Motor and servo both off, module goes limp |
-| Hold A | Calibration: motor off, servo commanded to center | Calibration: everything off (tank too) |
-| Dpad left/right (while holding A) | Trim `SERVO_CENTER` by 0.002 | Nudge the encoder zero by 0.5° |
+| Release left stick | Motor off, the loop **holds** the angle | Motor and servo both off, module goes limp |
+| Hold A | Calibration: everything off | Calibration: everything off (tank too) |
+| Dpad left/right (while holding A) | Nudge the encoder zero by 0.5° | Nudge the encoder zero by 0.5° |
 
 ## What the telemetry means
 
-Angles: **0° = straight forward, positive = to the right.**
+Angles: **0° = straight forward, positive = to the right.** `Module angle`,
+`Target angle`, `Held angle` and `Error` run −180°…+180°; `Raw encoder` and
+`Offset` run 0°…360°.
 
 | Line | Which OpMode | Meaning |
 | --- | --- | --- |
+| Module angle | both | Where the module actually points right now |
 | Target angle | both | Where it is trying to point |
-| Servo position | Single Swerve Module | The 0–1 command sent to the servo |
-| Center trim | Single Swerve Module | Current center position, to copy into `SERVO_CENTER` |
-| Ramp | Single Swerve Module | Drive power multiplier while the servo is still swinging |
-| Reachable | Single Swerve Module | Largest right / left angle the servo can reach with the current center and travel |
-| `!! OUT OF SERVO RANGE` | Single Swerve Module | The commanded angle is past the end of the servo's travel, so the real wheel angle is less than `Target angle` |
-| Module angle | Swerve Drive Testing | Where the module actually points right now |
-| Error | Swerve Drive Testing | Target minus actual. Should shrink toward 0 |
-| Steer power | Swerve Drive Testing | Power sent to the CR servo |
-| Raw encoder | Swerve Drive Testing | Encoder reading before the zero offset |
-| Offset | Swerve Drive Testing | Current encoder zero offset |
+| Held angle | Single Swerve Module | The angle being held while the stick is released |
+| Error | both | Target minus actual. Should shrink toward 0 |
+| Steer power | both | Power sent to the CR servo |
+| Raw encoder | both | Encoder reading before the zero offset, in 0°…360° rather than −180°…+180°. This is the number you copy into `ENCODER_OFFSET_DEGREES` |
+| Offset | both | Current encoder zero offset, in the same 0°…360° range |
+| Encoder volts | Single Swerve Module | The raw analog voltage right now |
+| Volts seen | Single Swerve Module | Lowest and highest voltage since the OpMode started, for measuring `ANALOG_MIN_VOLTAGE` / `ANALOG_MAX_VOLTAGE` |
+| Analog range | Single Swerve Module | The voltage range the code is using, and the hub's own maximum for comparison |
+| Encoder reversed | Single Swerve Module | The value of `ENCODER_REVERSED` |
+| `!! STALLED / NO FEEDBACK` | Single Swerve Module | Steering was commanded but the module did not move. Power is cut. Usually the feedback wire |
 | Drive power | both | Power sent to the wheel motor. `(reversed)` is normal, see below |
 | Tank power | Swerve Drive Testing | Tank drive output |
 
@@ -149,42 +188,45 @@ Angles: **0° = straight forward, positive = to the right.**
 
 **Lift the module off the ground first**, for either OpMode.
 
-### Single Swerve Module
+The order is the same for both, and it matters: each step assumes the ones above
+it are already right.
 
-1. Set the servo horn so the wheel is straight forward near mid-travel.
-2. Hold **A**, dpad-trim until the wheel is exactly forward, copy `Center trim`
-   into `SERVO_CENTER`, reinstall.
-3. Push the stick right — the wheel must turn right. If not, `SERVO_REVERSED = true`.
-4. Push the stick forward — the wheel must roll forward. If not, `DRIVE_REVERSED = true`.
-5. Push the stick fully right and check the wheel is at a real 90°. If not, fix
-   `SERVO_TRAVEL_DEGREES`.
-
-Details for each step are in [SingleSwerveTeleOp_README.md](SingleSwerveTeleOp_README.md).
-
-### Swerve Drive Testing (1 module)
-
-1. **Check the encoder.** In calibration mode (hold A), turn the module by hand.
-   `Raw encoder` must change. If it does not, check the feedback wire, the analog
-   port, and that `swerve_encoder` is set to Analog Input.
-2. **Set the zero.** Point the wheel straight forward, hold A, read `Raw encoder`,
+1. **Check the encoder is alive.** Turn the module by hand and watch
+   `Raw encoder`. On Single Swerve Module you can do this during INIT, before
+   anything is powered. If the number never changes, check the feedback wire, the
+   analog port, and that `swerve_encoder` is configured as Analog Input.
+2. **Check the encoder direction.** Hold A (all power off) and turn the wheel to
+   the right by hand. `Module angle` must rise. If it falls, set
+   `ENCODER_REVERSED = true` on Single Swerve Module and reinstall. Do this
+   before the zero — it changes what every reading means.
+3. **Set the zero.** Point the wheel straight forward, hold A, read `Raw encoder`,
    put that number into `ENCODER_OFFSET_DEGREES`. Reinstall, then check
    `Module angle` reads about 0 when the wheel is straight. Dpad trims only last
    until the OpMode stops — always copy the final value into the file.
-3. **Check steering direction.** Release A and push the left stick a little.
+4. **Check the steering direction.** Release A and push the left stick a little.
    `Error` must get smaller. **If the module keeps spinning or the error grows,
    press STOP immediately** and set `STEER_REVERSED = true`.
-4. **Check drive direction.** Point the stick forward. If the wheel faces forward
-   but rolls backward, ask a programmer to flip `driveMotor.setDirection` in
-   `init()`.
-5. **Check the tank drive.** Push the right stick forward. If the robot goes
-   backward or spins, the tank motor directions need flipping in `init()`.
+5. **Check the drive direction.** Point the stick forward. If the wheel faces
+   forward but rolls backward: on Single Swerve Module set
+   `DRIVE_REVERSED = true`; on Swerve Drive Testing flip
+   `driveMotor.setDirection` in `init()`.
+6. **Tune the PD loop.** See below.
+7. **Swerve Drive Testing only: check the tank drive.** Push the right stick
+   forward. If the robot goes backward or spins, the tank motor directions need
+   flipping in `init()`.
 
-## Tuning the steering — Swerve Drive Testing only
+Single Swerve Module also lets you measure the real analog range while you are in
+calibration mode — turn the module through a full turn and read `Volts seen`. Do
+that between steps 3 and 4, and redo the zero afterwards if you change the
+constants.
 
-Single Swerve Module has no steering loop to tune; its accuracy comes from
-`SERVO_CENTER` and `SERVO_TRAVEL_DEGREES`.
+## Tuning the steering
 
-Tune in this order. Start with `STEER_KD = 0` and `STEER_KS = 0`.
+Both OpModes use the same loop and the same gain names, so tune on one and copy
+the numbers to the other.
+
+Start with `STEER_KD = 0` and `STEER_KS = 0`, and lower `STEER_MAX_POWER` while
+you work.
 
 | What you see | Change |
 | --- | --- |
@@ -197,21 +239,25 @@ Tune in this order. Start with `STEER_KD = 0` and `STEER_KS = 0`.
 ## Things that look wrong but are normal
 
 - **The module drives backward sometimes.** Both OpModes point the wheel the
-  opposite way and reverse the motor rather than make a big turn. Telemetry shows
-  `(reversed)`.
-- **The wheel speeds up gradually after a big turn.** Swerve Drive Testing fades
-  power in using the real steering error; Single Swerve Module fades it in against
-  a modelled servo position instead. Either way it stops the wheel scrubbing
-  sideways.
-- **Single Swerve Module parks at 90° while the stick is roughly sideways.** That
-  is the fold hysteresis. It is up to 15° off what you asked for in that band, and
-  it is deliberate — without it the module would flap between pointing left and
-  pointing right. Swerve Drive Testing does not need it because it folds against
-  its measured angle.
+  opposite way and reverse the motor rather than make a turn of more than 90°.
+  Telemetry shows `(reversed)`.
+- **The wheel speeds up gradually after a big turn.** Both fade power in with the
+  cosine of the steering error, so the wheel does not scrub sideways while the
+  module is still turning.
+- **Single Swerve Module parks up to 15° off near sideways.** That is the fold
+  hysteresis, and it is deliberate — without it the module would flap between
+  pointing left and pointing right. Swerve Drive Testing has no hysteresis, which
+  is why it can chatter there.
+- **The wheel does not spin while the module is still more than 90° from the
+  target.** The cosine scaling is clipped at 0, so drive power is exactly 0 until
+  the module comes round inside 90°. Near sideways the hysteresis can hold it
+  just outside that, and the wheel waits.
 - **Swerve Drive Testing goes limp when you let go of the stick.** Power is cut on
   purpose so nothing buzzes and you can turn it by hand.
-- **Single Swerve Module does *not* go limp.** A position servo holds its last
-  command, so the module keeps its heading. This is the intended difference.
+- **Single Swerve Module does *not* go limp.** It keeps holding the last angle,
+  because `HOLD_ANGLE_ON_RELEASE` is true. Set it false for the other behaviour.
+- **Steer power reads 0.00 while the module is pointed correctly.** Inside
+  `STEER_TOLERANCE_DEGREES` the servo is switched off on purpose.
 
 ## Warning for the tank test robot
 
