@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamtestcode.Opmode;
+package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -15,7 +15,6 @@ public class Meet0Auto extends LinearOpMode {
     private DcMotor leftBack;
     private DcMotor rightFront;
     private DcMotor rightBack;
-
     private CRServo leftIntake;
     private CRServo rightIntake;
 
@@ -23,7 +22,22 @@ public class Meet0Auto extends LinearOpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
-    @Override
+    private void setMotorMode(DcMotor.RunMode mode) {
+        leftFront.setMode(mode);
+        leftBack.setMode(mode);
+        rightFront.setMode(mode);
+        rightBack.setMode(mode);
+    }
+
+    private void setMotorPower(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
+    }
+
+
+@Override
     public void runOpMode() {
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
@@ -70,6 +84,21 @@ public class Meet0Auto extends LinearOpMode {
 
         waitForStart();
 
+        if (opModeIsActive()) {
+            telemetry.addData("Auto Path", "Driving out of the starting zone");
+            telemetry.update();
+            driveStraight(0.5,1200);
+            sleep(500);
+
+            // this code should make it leave the starting area .
+
+
+            telemetry.addData("Auto Path", "Parking robot");
+            telemetry.update();
+            driveStraight(-0.3,400);
+            // back up and return to parking
+        }
+
         if (isStopRequested()) {
             return;
         }
@@ -81,54 +110,6 @@ public class Meet0Auto extends LinearOpMode {
         telemetry.addData("Status", "Finished");
         telemetry.addData("Runtime", "%.1f s", runtime.seconds());
         telemetry.update();
-
-        moveForward(0.5, 2.0);
-
-// Pause for 1 second
-        sleep(1000);
-
-// Move backward at 50% power for 2 seconds
-        moveBackward(0.5, 2.0);
-    }
-
-    // Move forward
-    private void moveForward(double power, double seconds) {
-        moveDrive(Math.abs(power), seconds);
-    }
-
-    // Move backward
-    private void moveBackward(double power, double seconds) {
-        moveDrive(-Math.abs(power), seconds);
-    }
-
-    // Control all four drive motors
-    private void moveDrive(double power, double seconds) {
-
-        if (!opModeIsActive()) {
-            return;
-        }
-
-        leftFront.setPower(power);
-        leftBack.setPower(power);
-        rightFront.setPower(power);
-        rightBack.setPower(power);
-
-        ElapsedTime timer = new ElapsedTime();
-        timer.reset();
-
-        while (opModeIsActive() && timer.seconds() < seconds) {
-            idle();
-        }
-
-        stopDrive();
-    }
-
-    // Stop drive motors
-    private void stopDrive() {
-        leftFront.setPower(0.0);
-        leftBack.setPower(0.0);
-        rightFront.setPower(0.0);
-        rightBack.setPower(0.0);
     }
 
     private void stopAll() {
@@ -140,4 +121,57 @@ public class Meet0Auto extends LinearOpMode {
         rightIntake.setPower(0.0);
         launcher.setPower(0.0);
     }
+
+    public void driveStraight(double power, int ticks) {
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        leftFront.setTargetPosition(ticks);
+        leftBack.setTargetPosition(ticks);
+        rightFront.setTargetPosition(ticks);
+        rightBack.setTargetPosition(ticks);
+
+        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+        setMotorPower(power);
+
+        while (opModeIsActive() && leftFront.isBusy()) {
+
+        }
+        setMotorPower(0);
+    }
+
+    // rotate in the original position, if tick is positive, turn right, or turn left
+    public void turn(double power, int ticks) {
+        if (!opModeIsActive()) {
+            return;
+        }
+
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // rotate left and right
+        leftFront.setTargetPosition(ticks);
+        leftBack.setTargetPosition(ticks);
+        rightFront.setTargetPosition(-ticks);
+        rightBack.setTargetPosition(-ticks);
+
+        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        ElapsedTime turnTimer = new ElapsedTime();
+
+        try {
+            setMotorPower(Math.abs(power));
+
+            // wating for at most 3 sec
+            while (opModeIsActive()
+                    && turnTimer.seconds() < 3.0
+                    && (leftFront.isBusy() || leftBack.isBusy()
+                    || rightFront.isBusy() || rightBack.isBusy())) {
+                idle();
+            }
+        } finally {
+            setMotorPower(0);
+            setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+    }
+
+
 }
