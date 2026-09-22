@@ -83,6 +83,46 @@ public class Meet0Auto extends LinearOpMode {
         telemetry.update();
     }
 
+    // Move forward
+    private void moveForward(double power, double seconds) {
+        moveDrive(Math.abs(power), seconds);
+    }
+
+    // Move backward
+    private void moveBackward(double power, double seconds) {
+        moveDrive(-Math.abs(power), seconds);
+    }
+
+    // Control all four drive motors
+    private void moveDrive(double power, double seconds) {
+
+        if (!opModeIsActive()) {
+            return;
+        }
+
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
+
+        ElapsedTime timer = new ElapsedTime();
+        timer.reset();
+
+        while (opModeIsActive() && timer.seconds() < seconds) {
+            idle();
+        }
+
+        stopDrive();
+    }
+
+    // Stop drive motors
+    private void stopDrive() {
+        leftFront.setPower(0.0);
+        leftBack.setPower(0.0);
+        rightFront.setPower(0.0);
+        rightBack.setPower(0.0);
+    }
+
     private void stopAll() {
         leftFront.setPower(0.0);
         leftBack.setPower(0.0);
