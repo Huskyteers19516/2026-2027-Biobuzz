@@ -139,4 +139,39 @@ public class Meet0Auto extends LinearOpMode {
         setMotorPower(0);
     }
 
+    // rotate in the original position, if tick is positive, turn right, or turn left
+    public void turn(double power, int ticks) {
+        if (!opModeIsActive()) {
+            return;
+        }
+
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+        // rotate left and right
+        leftFront.setTargetPosition(ticks);
+        leftBack.setTargetPosition(ticks);
+        rightFront.setTargetPosition(-ticks);
+        rightBack.setTargetPosition(-ticks);
+
+        setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+        ElapsedTime turnTimer = new ElapsedTime();
+
+        try {
+            setMotorPower(Math.abs(power));
+
+            // wating for at most 3 sec
+            while (opModeIsActive()
+                    && turnTimer.seconds() < 3.0
+                    && (leftFront.isBusy() || leftBack.isBusy()
+                    || rightFront.isBusy() || rightBack.isBusy())) {
+                idle();
+            }
+        } finally {
+            setMotorPower(0);
+            setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+    }
+
+
 }
