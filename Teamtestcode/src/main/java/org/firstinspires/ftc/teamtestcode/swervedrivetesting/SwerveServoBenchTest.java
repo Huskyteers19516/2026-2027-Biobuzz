@@ -14,6 +14,7 @@ public class SwerveServoBenchTest extends OpMode {
     private static final double POWER_STEP = 0.05;
     private static final double DRIVE_TEST_POWER = 0.20;
     private static final double MOVED_THRESHOLD_DEGREES = 3.0;
+    private static final double STICK_DEADZONE = 0.10;
 
     private CRServo steerServo;
     private AnalogInput steerEncoder;
@@ -70,6 +71,7 @@ public class SwerveServoBenchTest extends OpMode {
 
         double servoPower = 0.0;
         String mode = "idle (all power off)";
+        double stick = gamepad1.left_stick_x;
 
         if (gamepad1.a) {
             mode = "hand mode - all power off";
@@ -79,6 +81,9 @@ public class SwerveServoBenchTest extends OpMode {
         } else if (gamepad1.x) {
             servoPower = -testPower;
             mode = "servo - power";
+        } else if (Math.abs(stick) > STICK_DEADZONE) {
+            servoPower = stick;
+            mode = "manual steer from left stick";
         }
 
         boolean commanding = servoPower != 0.0;
@@ -113,6 +118,8 @@ public class SwerveServoBenchTest extends OpMode {
         }
 
         telemetry.addLine();
+        telemetry.addData("Left stick x", "%.2f", stick);
+        telemetry.addLine("Left stick L/R steers directly, no feedback loop.");
         telemetry.addLine("A hand mode | B servo+ | X servo- | trigger drive motor");
         telemetry.addLine("TEST 2: hold B. Does the WHEEL physically turn?");
         telemetry.update();
