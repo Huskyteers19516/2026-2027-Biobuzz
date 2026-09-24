@@ -16,7 +16,9 @@ public class SingleSwerveTeleOp extends OpMode {
     private static final String SERVO_NAME = "swerve_servo";
     private static final String ENCODER_NAME = "swerve_encoder";
 
-    private static final double ENCODER_OFFSET_DEGREES = 0.0;
+    private static final double STEERING_RATIO = 8.0;
+    private static final double RATIO_REFERENCE_DEGREES = 90.0;
+
     private static final boolean ENCODER_REVERSED = false;
     private static final boolean STEER_REVERSED = false;
     private static final boolean DRIVE_REVERSED = false;
@@ -24,24 +26,26 @@ public class SingleSwerveTeleOp extends OpMode {
     private static final double ANALOG_MIN_VOLTAGE = 0.0;
     private static final double ANALOG_MAX_VOLTAGE = 3.3;
 
-    private static final double STEER_KP = 0.012;
-    private static final double STEER_KD = 0.0006;
+    private static final double STEER_KP = 0.05;
+    private static final double STEER_KD = 0.002;
     private static final double STEER_KS = 0.05;
-    private static final double STEER_TOLERANCE_DEGREES = 2.0;
-    private static final double STEER_MAX_POWER = 1.0;
+    private static final double STEER_TOLERANCE_DEGREES = 1.0;
+    private static final double STEER_MAX_POWER = 0.6;
 
     private static final double STICK_DEADZONE = 0.15;
     private static final double DRIVE_POWER_SCALE = 1.0;
     private static final double TRIM_STEP_DEGREES = 0.5;
     private static final double FOLD_HYSTERESIS_DEGREES = 15.0;
 
-    private static final double STALL_POWER_THRESHOLD = 0.25;
+    private static final double STALL_POWER_THRESHOLD = 0.45;
     private static final double STALL_TIME_SECONDS = 2.0;
-    private static final double STALL_MOVE_DEGREES = 2.0;
+    private static final double STALL_MOVE_DEGREES = 1.0;
 
     private static final double HOME_TOLERANCE_DEGREES = 2.0;
-    private static final double HOME_TIMEOUT_SECONDS = 4.0;
+    private static final double HOME_TIMEOUT_SECONDS = 6.0;
     private static final double NOISE_WINDOW_SECONDS = 1.0;
+    private static final double ALIAS_WARN_SERVO_DEGREES = 90.0;
+    private static final double MAX_SERVO_DEGREES_PER_SECOND = 600.0;
 
     private DcMotor driveMotor;
     private CRServo steerServo;
@@ -52,22 +56,41 @@ public class SingleSwerveTeleOp extends OpMode {
     private final ElapsedTime homeTimer = new ElapsedTime();
     private final ElapsedTime noiseTimer = new ElapsedTime();
 
+    private double steeringRatio = 1.0;
+    private boolean ratioValid = true;
+
     private double loopDt = 0.0;
-    private double offsetTrim = ENCODER_OFFSET_DEGREES;
     private double heldAngle = 0.0;
-    private double previousAngle = 0.0;
     private double angularVelocity = 0.0;
     private boolean driveReversedState = false;
 
     private double lastVoltage = 0.0;
     private double lastRawAngle = 0.0;
-    private double lastModuleAngle = 0.0;
+    private double previousRawAngle = 0.0;
+    private double unwrappedServoAngle = 0.0;
+    private double previousUnwrappedServoAngle = 0.0;
+    private double zeroServoAngle = 0.0;
+    private boolean encoderPrimed = false;
+    private int zeroTakenCount = 0;
+
     private double minVoltageSeen = Double.MAX_VALUE;
     private double maxVoltageSeen = -Double.MAX_VALUE;
+
+    private int aliasWarnings = 0;
+    private double worstServoStepDegrees = 0.0;
+    private int slowLoopWarnings = 0;
+    private double worstLoopSeconds = 0.0;
+
+    private boolean calibrationActive = false;
+    private double calibrationStartServoAngle = 0.0;
 
     private boolean steerStalled = false;
     private double stallTargetAngle = 0.0;
     private double stallBestError = 0.0;
+    private double stallStartError = 0.0;
+    private double stallEndError = 0.0;
+    private double stallModuleStart = 0.0;
+    private double stallModuleEnd = 0.0;
 
     private boolean homing = false;
     private String homeResult = "not run";
@@ -93,29 +116,44 @@ public class SingleSwerveTeleOp extends OpMode {
                 ? DcMotorSimple.Direction.REVERSE
                 : DcMotorSimple.Direction.FORWARD);
 
+        ratioValid = STEERING_RATIO > 0.0;
+        steeringRatio = ratioValid ? STEERING_RATIO : 1.0;
+
         loopDt = 0.0;
         noiseTimer.reset();
         sampleEncoder();
+        zeroServoAngle = unwrappedServoAngle;
+        heldAngle = 0.0;
     }
 
     @Override
     public void init_loop() {
         loopDt = 0.0;
         sampleEncoder();
+
+        if (gamepad1.bWasPressed()) {
+            takeZero();
+        }
+
         drainButtonEdges();
 
-        telemetry.addLine("Single Swerve Module - CR servo caster");
+        telemetry.addLine("Single Swerve Module - geared CR servo caster");
         telemetry.addLine("Nothing is powered during INIT.");
-        telemetry.addData("Module angle", "%.1f deg", lastModuleAngle);
-        telemetry.addData("Raw encoder", "%.1f deg", lastRawAngle);
+        telemetryRatio();
+        telemetry.addData("Module angle", "%.1f deg", moduleAngle());
+        telemetry.addData("Servo raw", "%.1f deg", lastRawAngle);
+        telemetry.addData("Servo unwrapped", "%.1f deg", unwrappedServoAngle);
         telemetry.addData("Encoder volts", "%.3f V", lastVoltage);
+        telemetry.addData("Volts seen", "%s - %s",
+                formatVoltage(minVoltageSeen), formatVoltage(maxVoltageSeen));
         telemetry.addData("Analog range in use", "%.2f - %.2f V (hub max %.2f V)",
                 ANALOG_MIN_VOLTAGE, ANALOG_MAX_VOLTAGE, steerEncoder.getMaxVoltage());
         telemetryNoise();
-        telemetry.addLine("Turn the wheel by hand now - Raw encoder must change.");
-        telemetry.addLine("START drives the module to forward under power.");
-        telemetry.addLine("Not sure of ENCODER_REVERSED / STEER_REVERSED yet?");
-        telemetry.addLine("Hold A while you press START, then read the first-run steps.");
+        telemetry.addLine("Turn the wheel by hand now - Servo raw must change.");
+        telemetry.addLine("POINT THE WHEEL STRAIGHT FORWARD BY HAND BEFORE START.");
+        telemetry.addLine("START takes that position as 0 and then homes to it.");
+        telemetry.addLine("B re-takes the zero here and at any time later.");
+        telemetry.addLine("Hold A across START on a first run, then read the README.");
         telemetry.update();
     }
 
@@ -125,8 +163,7 @@ public class SingleSwerveTeleOp extends OpMode {
         sampleEncoder();
         loopTimer.reset();
 
-        heldAngle = lastModuleAngle;
-        driveReversedState = false;
+        takeZero();
         beginHoming();
     }
 
@@ -136,20 +173,34 @@ public class SingleSwerveTeleOp extends OpMode {
         loopTimer.reset();
 
         boolean homeRequested = gamepad1.yWasPressed();
+        boolean zeroRequested = gamepad1.bWasPressed();
+        boolean measureRestart = gamepad1.xWasPressed();
         boolean trimUp = gamepad1.dpadRightWasPressed();
         boolean trimDown = gamepad1.dpadLeftWasPressed();
         boolean calibrating = gamepad1.a;
 
-        if (calibrating) {
-            applyEncoderTrim(trimUp, trimDown);
-        }
-
         sampleEncoder();
 
+        if (zeroRequested) {
+            takeZero();
+        }
+
         if (calibrating) {
+            if (!calibrationActive) {
+                calibrationActive = true;
+                calibrationStartServoAngle = unwrappedServoAngle;
+            }
+
+            if (measureRestart) {
+                calibrationStartServoAngle = unwrappedServoAngle;
+            }
+
+            applyZeroTrim(trimUp, trimDown);
             runCalibration();
             return;
         }
+
+        calibrationActive = false;
 
         if (gamepad1.left_bumper) {
             runManualOverride();
@@ -180,7 +231,7 @@ public class SingleSwerveTeleOp extends OpMode {
     }
 
     private void runCaster() {
-        double moduleAngle = lastModuleAngle;
+        double moduleAngle = moduleAngle();
         double stickX = gamepad1.left_stick_x;
         double stickY = -gamepad1.left_stick_y;
         double magnitude = Range.clip(Math.hypot(stickX, stickY), 0.0, 1.0);
@@ -223,28 +274,48 @@ public class SingleSwerveTeleOp extends OpMode {
         setOutputs(steerPower, drivePower);
 
         if (steerStalled) {
-            telemetry.addLine("!! STALLED / NO FEEDBACK - steering and drive cut");
+            double errorGrowth = stallEndError - stallStartError;
+            double moduleMoved = normalize(stallModuleEnd - stallModuleStart);
+
+            telemetry.addLine("!! STALLED - steering and drive cut");
+            telemetry.addData("Error went", "%.1f -> %.1f module deg", stallStartError, stallEndError);
+            telemetry.addData("Module moved", "%.1f module deg while pushing", moduleMoved);
+
+            if (errorGrowth > STALL_MOVE_DEGREES) {
+                telemetry.addLine("DIAGNOSIS: error GREW - the servo drives the wrong way.");
+                telemetry.addLine("Flip STEER_REVERSED (or ENCODER_REVERSED if mirrored).");
+            } else if (Math.abs(moduleMoved) < STALL_MOVE_DEGREES) {
+                telemetry.addLine("DIAGNOSIS: module did NOT move - jammed or no torque.");
+                telemetry.addLine("Hold LB and steer by hand power to find the limit.");
+            } else {
+                telemetry.addLine("DIAGNOSIS: module moved but too slowly to finish.");
+                telemetry.addLine("Raise STEER_MAX_POWER / STEER_KP, or check STEERING_RATIO.");
+            }
+
             telemetry.addLine("Error stopped shrinking while steering was commanded.");
             telemetry.addLine("Hold LB to steer by hand, or hold A to clear and check the encoder.");
         }
 
+        telemetryRatio();
         telemetry.addData("Stick", released ? "released" : String.format("x %.2f  y %.2f", stickX, stickY));
         telemetry.addData("Module angle", "%.1f deg", moduleAngle);
+        telemetry.addData("Module continuous", "%.1f deg", moduleContinuousAngle());
         telemetry.addData(released ? "Held angle" : "Target angle", "%.1f deg", targetAngle);
-        telemetry.addData("Error", "%.1f deg", error);
+        telemetry.addData("Error", "%.1f module deg  (%.0f servo deg)", error, error * steeringRatio);
+        telemetry.addData("Module speed", "%.1f module deg/s", angularVelocity);
         telemetry.addData("Steer power", "%.2f", steerPower);
         telemetry.addData("Drive power", "%.2f%s", drivePower,
                 driveReversedState && !released ? "  (reversed)" : "");
+        telemetry.addData("Servo unwrapped", "%.1f deg  (zero %.1f)", unwrappedServoAngle, zeroServoAngle);
         telemetry.addData("Encoder volts", "%.3f V", lastVoltage);
-        telemetry.addData("Offset", "%.1f deg", offsetTrim);
         telemetry.addData("Homing", homeResult);
         telemetryNoise();
-        telemetry.addLine("Y: point forward. LB: manual steer. A: calibrate.");
+        telemetry.addLine("Y: home to 0. B: re-zero here. LB: manual steer. A: calibrate.");
         telemetry.update();
     }
 
     private void runHoming() {
-        double error = normalize(0.0 - lastModuleAngle);
+        double error = normalize(0.0 - moduleAngle());
         double steerPower = computeSteerPower(error);
 
         updateStallWatchdog(0.0, error, steerPower);
@@ -261,20 +332,22 @@ public class SingleSwerveTeleOp extends OpMode {
         if (reached) {
             endHoming(String.format("done in %.1f s", homeTimer.seconds()));
         } else if (steerStalled) {
-            endHoming(String.format("STALLED %.1f deg off - check STEER_REVERSED",
+            endHoming(String.format("STALLED %.1f module deg off - check STEER_REVERSED",
                     Math.abs(error)));
         } else if (timedOut) {
-            endHoming(String.format("TIMEOUT, still %.1f deg off", Math.abs(error)));
+            endHoming(String.format("TIMEOUT, still %.1f module deg off", Math.abs(error)));
         }
 
         telemetry.addLine(">>> HOMING TO FORWARD <<<");
+        telemetryRatio();
         telemetry.addData("Status", homeResult);
-        telemetry.addData("Module angle", "%.1f deg", lastModuleAngle);
-        telemetry.addData("Error to forward", "%.1f deg", error);
+        telemetry.addData("Module angle", "%.1f deg", moduleAngle());
+        telemetry.addData("Error to forward", "%.1f module deg  (%.0f servo deg)",
+                error, error * steeringRatio);
         telemetry.addData("Steer power", "%.2f", steerPower);
         telemetry.addData("Encoder volts", "%.3f V", lastVoltage);
         telemetryNoise();
-        telemetry.addLine("Y homes again. LB steers by hand. A cuts all power.");
+        telemetry.addLine("Y homes again. B re-zeros here. LB steers by hand. A cuts all power.");
         telemetry.update();
     }
 
@@ -286,9 +359,11 @@ public class SingleSwerveTeleOp extends OpMode {
 
         telemetry.addLine(">>> MANUAL STEER OVERRIDE (LB held) <<<");
         telemetry.addLine("No loop, no watchdog. This proves the module can physically turn.");
+        telemetryRatio();
         telemetry.addData("Servo power", "%.2f  (RIGHT stick x)", servoPower);
-        telemetry.addData("Module angle", "%.1f deg", lastModuleAngle);
-        telemetry.addData("Raw encoder", "%.1f deg", lastRawAngle);
+        telemetry.addData("Module angle", "%.1f deg", moduleAngle());
+        telemetry.addData("Servo raw", "%.1f deg", lastRawAngle);
+        telemetry.addData("Servo unwrapped", "%.1f deg", unwrappedServoAngle);
         telemetry.addData("Encoder volts", "%.3f V", lastVoltage);
         telemetryNoise();
         telemetry.addLine("Wheel turns but the angle does not: the feedback path is dead.");
@@ -300,11 +375,28 @@ public class SingleSwerveTeleOp extends OpMode {
         setOutputs(0.0, 0.0);
         seedHoldFromMeasuredAngle();
 
-        telemetry.addLine(">>> CALIBRATION MODE <<<");
+        double servoMoved = unwrappedServoAngle - calibrationStartServoAngle;
+        double reference = RATIO_REFERENCE_DEGREES > 0.0 ? RATIO_REFERENCE_DEGREES : 90.0;
+        double impliedRatio = Math.abs(servoMoved) / reference;
+
+        telemetry.addLine(">>> CALIBRATION / RATIO MEASUREMENT <<<");
         telemetry.addLine("All power is off. Turn the module by hand.");
-        telemetry.addData("Raw encoder", "%.1f deg", lastRawAngle);
-        telemetry.addData("Module angle", "%.1f deg", lastModuleAngle);
-        telemetry.addData("Offset", "%.1f deg  (dpad left/right)", offsetTrim);
+        telemetryRatio();
+        telemetry.addData("Servo moved", "%.1f deg since A was pressed", servoMoved);
+        telemetry.addData("Implied ratio", "%.2f servo deg per module deg", impliedRatio);
+        telemetry.addLine(String.format(
+                "ONLY TRUE IF YOU JUST TURNED THE MODULE EXACTLY %.0f DEG.", reference));
+        telemetry.addLine("Square the wheel up, press X to restart the measurement,");
+        telemetry.addLine(String.format(
+                "turn exactly %.0f deg against a square, then read Implied ratio.", reference));
+        telemetry.addLine("Put that number into STEERING_RATIO and reinstall.");
+        telemetry.addData("Module angle", "%.1f deg", moduleAngle());
+        telemetry.addData("Module continuous", "%.1f deg", moduleContinuousAngle());
+        telemetry.addData("Servo raw", "%.1f deg", lastRawAngle);
+        telemetry.addData("Servo unwrapped", "%.1f deg  (zero %.1f)", unwrappedServoAngle, zeroServoAngle);
+        telemetry.addData("Zero taken", "%d times  (B re-zeros)", zeroTakenCount);
+        telemetry.addData("Trim", "dpad right/left moves the zero by %.1f module deg",
+                TRIM_STEP_DEGREES);
         telemetry.addData("Encoder volts", "%.3f V", lastVoltage);
         telemetry.addData("Volts seen", "%s - %s",
                 formatVoltage(minVoltageSeen), formatVoltage(maxVoltageSeen));
@@ -313,7 +405,6 @@ public class SingleSwerveTeleOp extends OpMode {
         telemetry.addData("Encoder reversed", ENCODER_REVERSED ? "true" : "false");
         telemetryNoise();
         telemetry.addLine("Turn the wheel RIGHT by hand: Module angle must RISE.");
-        telemetry.addLine("Copy Raw encoder into ENCODER_OFFSET_DEGREES.");
         telemetry.update();
     }
 
@@ -324,17 +415,17 @@ public class SingleSwerveTeleOp extends OpMode {
         driveReversedState = false;
         steerStalled = false;
         stallTargetAngle = 0.0;
-        stallBestError = Math.abs(normalize(0.0 - lastModuleAngle));
+        stallBestError = Math.abs(normalize(0.0 - moduleAngle()));
         stallTimer.reset();
     }
 
     private void endHoming(String result) {
         homing = false;
         homeResult = result;
-        heldAngle = lastModuleAngle;
+        heldAngle = moduleAngle();
         driveReversedState = false;
         steerStalled = false;
-        stallTargetAngle = lastModuleAngle;
+        stallTargetAngle = heldAngle;
         stallBestError = 0.0;
         stallTimer.reset();
     }
@@ -345,12 +436,40 @@ public class SingleSwerveTeleOp extends OpMode {
             homeResult = "cancelled";
         }
 
-        heldAngle = lastModuleAngle;
+        heldAngle = moduleAngle();
         driveReversedState = false;
         steerStalled = false;
-        stallTargetAngle = lastModuleAngle;
+        stallTargetAngle = heldAngle;
         stallBestError = 0.0;
         stallTimer.reset();
+    }
+
+    private void takeZero() {
+        zeroServoAngle = unwrappedServoAngle;
+        zeroTakenCount++;
+        heldAngle = 0.0;
+        driveReversedState = false;
+        steerStalled = false;
+        stallTargetAngle = 0.0;
+        stallBestError = 0.0;
+        stallTimer.reset();
+        aliasWarnings = 0;
+        worstServoStepDegrees = 0.0;
+        slowLoopWarnings = 0;
+        worstLoopSeconds = 0.0;
+
+        if (homing) {
+            homing = false;
+            homeResult = "cancelled by re-zero";
+        }
+    }
+
+    private double aliasLoopSeconds() {
+        if (MAX_SERVO_DEGREES_PER_SECOND <= 0.0) {
+            return Double.MAX_VALUE;
+        }
+
+        return 180.0 / MAX_SERVO_DEGREES_PER_SECOND;
     }
 
     private void setOutputs(double steerPower, double drivePower) {
@@ -376,6 +495,8 @@ public class SingleSwerveTeleOp extends OpMode {
         if (Math.abs(normalize(targetAngle - stallTargetAngle)) > STALL_MOVE_DEGREES) {
             stallTargetAngle = targetAngle;
             stallBestError = absError;
+            stallStartError = absError;
+            stallModuleStart = moduleAngle();
             stallTimer.reset();
             steerStalled = false;
         }
@@ -394,6 +515,11 @@ public class SingleSwerveTeleOp extends OpMode {
         }
 
         if (stallTimer.seconds() > STALL_TIME_SECONDS) {
+            if (!steerStalled) {
+                stallEndError = absError;
+                stallModuleEnd = moduleAngle();
+            }
+
             steerStalled = true;
         }
     }
@@ -412,11 +538,40 @@ public class SingleSwerveTeleOp extends OpMode {
         }
 
         lastRawAngle = rawAngleFromVoltage(voltage);
-        lastModuleAngle = normalize(lastRawAngle - offsetTrim);
 
-        double angleDelta = normalize(lastModuleAngle - previousAngle);
-        angularVelocity = loopDt > 1e-4 ? angleDelta / loopDt : 0.0;
-        previousAngle = lastModuleAngle;
+        if (!encoderPrimed) {
+            encoderPrimed = true;
+            previousRawAngle = lastRawAngle;
+            unwrappedServoAngle = lastRawAngle;
+            previousUnwrappedServoAngle = lastRawAngle;
+            zeroServoAngle = lastRawAngle;
+        }
+
+        double servoStep = normalize(lastRawAngle - previousRawAngle);
+        previousRawAngle = lastRawAngle;
+        unwrappedServoAngle += servoStep;
+
+        double absStep = Math.abs(servoStep);
+
+        if (absStep > worstServoStepDegrees) {
+            worstServoStepDegrees = absStep;
+        }
+
+        if (absStep > ALIAS_WARN_SERVO_DEGREES) {
+            aliasWarnings++;
+        }
+
+        if (loopDt > worstLoopSeconds) {
+            worstLoopSeconds = loopDt;
+        }
+
+        if (loopDt > aliasLoopSeconds()) {
+            slowLoopWarnings++;
+        }
+
+        double servoVelocityStep = unwrappedServoAngle - previousUnwrappedServoAngle;
+        previousUnwrappedServoAngle = unwrappedServoAngle;
+        angularVelocity = loopDt > 1e-4 ? servoVelocityStep / steeringRatio / loopDt : 0.0;
 
         if (voltage < noiseMinVolts) {
             noiseMinVolts = voltage;
@@ -450,36 +605,67 @@ public class SingleSwerveTeleOp extends OpMode {
         return normalized * 360.0;
     }
 
+    private double moduleContinuousAngle() {
+        return (unwrappedServoAngle - zeroServoAngle) / steeringRatio;
+    }
+
+    private double moduleAngle() {
+        return normalize(moduleContinuousAngle());
+    }
+
+    private void telemetryRatio() {
+        if (ratioValid) {
+            telemetry.addData("Steering ratio", "%.2f servo deg per module deg", steeringRatio);
+        } else {
+            telemetry.addLine("!! STEERING_RATIO is not positive - falling back to 1.00");
+            telemetry.addLine("Set STEERING_RATIO above zero and reinstall.");
+        }
+    }
+
     private void telemetryNoise() {
         double windowSpan = noiseMaxVolts - noiseMinVolts;
         double peakToPeak = Math.max(noisePeakToPeakVolts, windowSpan > 0.0 ? windowSpan : 0.0);
         double span = ANALOG_MAX_VOLTAGE - ANALOG_MIN_VOLTAGE;
-        double noiseDegrees = span > 0.0 ? peakToPeak / span * 360.0 : 0.0;
+        double noiseServoDegrees = span > 0.0 ? peakToPeak / span * 360.0 : 0.0;
 
-        telemetry.addData("Noise p-p", "%.3f V  (%.1f deg)", peakToPeak, noiseDegrees);
+        telemetry.addData("Noise p-p", "%.3f V  (%.1f servo deg = %.2f module deg)",
+                peakToPeak, noiseServoDegrees, noiseServoDegrees / steeringRatio);
+        telemetry.addData("Biggest wrapped servo step", "%.1f deg per loop (max 180)",
+                worstServoStepDegrees);
+        telemetry.addData("Slowest loop", "%.3f s  (alias risk above %.3f s)",
+                worstLoopSeconds, aliasLoopSeconds());
 
-        if (Math.abs(lastModuleAngle) > 150.0) {
-            telemetry.addLine("Near the +/-180 wrap: flipping between +179 and -180");
-            telemetry.addLine("is normal here. Set ENCODER_OFFSET_DEGREES to move it.");
+        if (aliasWarnings > 0 || slowLoopWarnings > 0) {
+            telemetry.addLine("!! Unwrap may have aliased - module angle may be off by "
+                    + String.format("%.0f deg", 360.0 / steeringRatio));
+            telemetry.addData("  wrapped steps over limit", "%d loops over %.0f servo deg",
+                    aliasWarnings, ALIAS_WARN_SERVO_DEGREES);
+            telemetry.addData("  loops slow enough to alias", "%d loops over %.3f s",
+                    slowLoopWarnings, aliasLoopSeconds());
+            telemetry.addLine("Re-zero with B after pointing the wheel forward by hand.");
+        }
+
+        if (Math.abs(moduleAngle()) > 150.0) {
+            telemetry.addLine("Near the +/-180 module wrap: flipping between +179 and -180");
+            telemetry.addLine("is normal here. Press B facing forward to move the zero.");
         }
     }
 
     private void drainButtonEdges() {
         gamepad1.yWasPressed();
+        gamepad1.xWasPressed();
         gamepad1.dpadRightWasPressed();
         gamepad1.dpadLeftWasPressed();
     }
 
-    private void applyEncoderTrim(boolean trimUp, boolean trimDown) {
+    private void applyZeroTrim(boolean trimUp, boolean trimDown) {
         if (trimUp) {
-            offsetTrim += TRIM_STEP_DEGREES;
+            zeroServoAngle -= TRIM_STEP_DEGREES * steeringRatio;
         }
 
         if (trimDown) {
-            offsetTrim -= TRIM_STEP_DEGREES;
+            zeroServoAngle += TRIM_STEP_DEGREES * steeringRatio;
         }
-
-        offsetTrim = ((offsetTrim % 360.0) + 360.0) % 360.0;
     }
 
     private String formatVoltage(double voltage) {
