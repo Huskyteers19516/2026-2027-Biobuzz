@@ -1,15 +1,20 @@
-package org.firstinspires.ftc.teamtestcode.Opmode;
+package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
 
-import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
-import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.eventloop.opmode.OpMode;
+import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.CRServo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name = "Meet0 Auto", group = "Meet0")
-public class Meet0Auto extends LinearOpMode {
+@TeleOp(name = "Meet0 TeleOp", group = "Meet0")
+public class Meet0TeleOp extends OpMode {
+
+
+    private static final double LAUNCHER_TARGET_VELOCITY = 1200.0;
+    private static final double LAUNCHER_READY_TOLERANCE = 100.0;
+    private static final double INTAKE_POWER = 1.0;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
@@ -23,8 +28,11 @@ public class Meet0Auto extends LinearOpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
+
+    private boolean launcherOn = false;
+
     @Override
-    public void runOpMode() {
+    public void init() {
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
@@ -45,11 +53,6 @@ public class Meet0Auto extends LinearOpMode {
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-
         leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -66,21 +69,68 @@ public class Meet0Auto extends LinearOpMode {
         stopAll();
 
         telemetry.addData("Status", "Initialized");
-        telemetry.update();
+    }
 
-        waitForStart();
+    @Override
+    public void start() {
+        runtime.reset();
+    }
 
-        if (isStopRequested()) {
-            return;
+    @Override
+    public void loop() {
+
+        double leftPower = -gamepad1.left_stick_y;
+        double rightPower = -gamepad1.right_stick_y;
+
+        leftFront.setPower(leftPower);
+        leftBack.setPower(leftPower);
+        rightFront.setPower(rightPower);
+        rightBack.setPower(rightPower);
+
+
+        if (gamepad1.a) {
+            launcherOn = true;
+        }
+        if (gamepad1.b) {
+            launcherOn = false;
         }
 
-        runtime.reset();
+        if (launcherOn) {
+            launcher.setVelocity(LAUNCHER_TARGET_VELOCITY);
+        } else {
+            launcher.setPower(0.0);
+        }
 
-        stopAll();
+        double launcherVelocity = launcher.getVelocity();
+        boolean launcherReady = launcherOn
+                && Math.abs(launcherVelocity - LAUNCHER_TARGET_VELOCITY) < LAUNCHER_READY_TOLERANCE;
 
-        telemetry.addData("Status", "Finished");
+        //
+        double intakePower = 0.0;
+        if (gamepad1.right_bumper) {
+            intakePower = INTAKE_POWER;
+        } else if (gamepad1.left_bumper) {
+            intakePower = -INTAKE_POWER;
+        } else if (gamepad1.right_trigger > 0.5 && launcherReady) {
+            intakePower = INTAKE_POWER;
+        }
+
+        leftIntake.setPower(intakePower);
+        rightIntake.setPower(intakePower);
+
+        // ---- Telemetry ----
+        telemetry.addData("Status", "Running");
         telemetry.addData("Runtime", "%.1f s", runtime.seconds());
-        telemetry.update();
+        telemetry.addData("Drive", "L %.2f  R %.2f", leftPower, rightPower);
+        telemetry.addData("Intake", "%.2f", intakePower);
+        telemetry.addData("Launcher", launcherOn ? "ON" : "OFF");
+        telemetry.addData("Launcher speed", "%.0f / %.0f ticks/s", launcherVelocity, LAUNCHER_TARGET_VELOCITY);
+        telemetry.addData("Launcher ready", launcherReady);
+    }
+
+    @Override
+    public void stop() {
+        stopAll();
     }
 
     private void stopAll() {
