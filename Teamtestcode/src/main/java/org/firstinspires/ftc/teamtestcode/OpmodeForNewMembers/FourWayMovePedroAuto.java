@@ -14,6 +14,8 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamtestcode.pedropathing.Constants;
 
+import java.util.Locale;
+
 @Autonomous(name = "Four Way Move Pedro Auto", group = "Testing")
 public class FourWayMovePedroAuto extends LinearOpMode {
 
@@ -27,6 +29,7 @@ public class FourWayMovePedroAuto extends LinearOpMode {
     Pose end = new Pose(6.0, 0.0, 0.0);
 
     double maxTime = 6;
+    double pause = 0.5;
 
     @Override
     public void runOpMode() {
@@ -48,13 +51,13 @@ public class FourWayMovePedroAuto extends LinearOpMode {
         follower.setPose(start);
 
         goTo(front);
-        waitTime(0.5);
+        waitTime(pause);
         goTo(start);
-        waitTime(0.5);
+        waitTime(pause);
         goTo(right);
-        waitTime(0.5);
+        waitTime(pause);
         goTo(start);
-        waitTime(0.5);
+        waitTime(pause);
         goTo(end);
 
         follower.stop();
@@ -96,6 +99,6 @@ public class FourWayMovePedroAuto extends LinearOpMode {
     }
 
     String poseText(Pose pose) {
-        return String.format("x %.1f  y %.1f  h %.1f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+        return String.format(Locale.US, "x %.1f  y %.1f  h %.1f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
     }
 }

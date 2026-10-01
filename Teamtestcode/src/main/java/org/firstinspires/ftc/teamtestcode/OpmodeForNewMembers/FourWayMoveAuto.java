@@ -16,8 +16,10 @@ public class FourWayMoveAuto extends LinearOpMode {
     double strafeFix = 1.15;
     double speed = 0.4;
     double slowSpeed = 0.12;
+    double moveInches = 24;
+    double pause = 0.5;
 
-
+    @Override
     public void runOpMode() {
         lf = hardwareMap.get(DcMotor.class, "left_front");
         rf = hardwareMap.get(DcMotor.class, "right_front");
@@ -50,14 +52,14 @@ public class FourWayMoveAuto extends LinearOpMode {
 
         waitForStart();
 
-        forward(24);
-        waitTime(0.5);
-        back(24);
-        waitTime(0.5);
-        right(24);
-        waitTime(0.5);
-        left(24);
-        waitTime(0.5);
+        forward(moveInches);
+        waitTime(pause);
+        back(moveInches);
+        waitTime(pause);
+        right(moveInches);
+        waitTime(pause);
+        left(moveInches);
+        waitTime(pause);
         forward(6);
 
         stopMotors();
