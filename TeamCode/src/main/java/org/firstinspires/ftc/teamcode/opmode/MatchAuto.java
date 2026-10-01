@@ -16,7 +16,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.List;
 
-@Autonomous(name = "Match Auto", group = "Competition")
+@Autonomous(name = "Match Auto", group = "Auto")
 public class MatchAuto extends LinearOpMode {
 
     private static final double OUTTAKE_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
@@ -62,6 +62,10 @@ public class MatchAuto extends LinearOpMode {
     private DcMotor transfer;
     private DcMotorEx outtake;
     private Servo launcherServo;
+    private DcMotor LeftFront;
+    private DcMotor Leftback;
+    private DcMotor riightfront;
+    private DcMotor rightBack;
 
     private final ElapsedTime runtime = new ElapsedTime();
 
@@ -85,6 +89,7 @@ public class MatchAuto extends LinearOpMode {
     public void runOpMode() {
         follower = Constants.createFollower(hardwareMap);
         scanner = new GoalScanner(hardwareMap);
+
 
         intake = hardwareMap.get(DcMotor.class, RobotTeleOp.INTAKE_NAME);
         transfer = hardwareMap.get(DcMotor.class, RobotTeleOp.TRANSFER_NAME);
