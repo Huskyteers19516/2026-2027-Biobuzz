@@ -1,11 +1,11 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
 
 import com.pedropathing.math.Pose;
 
 import java.util.ArrayList;
 import java.util.List;
 
-public class FieldPoints {
+public class FieldPoint {
 
     public static final boolean POINTS_CONFIRMED = false;
 
@@ -28,23 +28,6 @@ public class FieldPoints {
     public static final double AIM_AT_SHOOT_POSE_1 = 0.50;
     public static final double AIM_AT_SHOOT_POSE_2 = 0.55;
 
-    public static final GoalScanner.Alliance ALLIANCE = GoalScanner.Alliance.RED;
-
-    public static final boolean VISION_AIMING_ENABLED = true;
-
-    public static final double RANGE_NEAR_INCHES = 40.0;
-    public static final double RANGE_FAR_INCHES = 100.0;
-    public static final double AIM_AT_NEAR = 0.45;
-    public static final double AIM_AT_FAR = 0.65;
-
-    public static final double AIM_BEARING_TOLERANCE_DEGREES = 2.5;
-    public static final double AIM_BEARING_MAX_CORRECTION_DEGREES = 30.0;
-    public static final double AIM_HEADING_SETTLE_TOLERANCE_DEGREES = 1.5;
-
-    public static final double SCAN_TIMEOUT_SECONDS = 0.7;
-    public static final double AIM_TURN_TIMEOUT_SECONDS = 1.0;
-    public static final double PER_SHOT_TIMEOUT_SECONDS = 4.0;
-
     public static final int SHOTS_AT_SHOOT_POSE_1 = 3;
     public static final int SHOTS_AT_SHOOT_POSE_2 = 3;
     public static final int SHOTS_AFTER_FLOWER = 1;
@@ -59,11 +42,6 @@ public class FieldPoints {
 
     public static final double MIN_PATH_LENGTH_INCHES = 0.5;
 
-    public static boolean GOAL_ONE = false;
-
-    public static double sweepTime = 5;
-
-
     public enum Action {
         NONE,
         SHOOT,
@@ -77,7 +55,6 @@ public class FieldPoints {
 
         steps.add(move("Move to flower 1 start", FLOWER_1_START));
         steps.add(collect("Sweep flower 1", FLOWER_1_END, INTAKE_SECONDS_AT_FLOWER));
-        steps.add(move("Move to shooting point 1", SHOOT_POSE_1));
         steps.add(shoot("Shoot flower 1 at shooting point 1", SHOOT_POSE_1, SHOTS_AFTER_FLOWER, AIM_AT_SHOOT_POSE_1));
 
         steps.add(move("Move to flower 2 start", FLOWER_2_START));
@@ -105,10 +82,6 @@ public class FieldPoints {
     public static Step move(String name, Pose target, double timeoutSeconds) {
         return new Step(name, target, Action.NONE, 0, 0.0, false,
                 timeoutSeconds, AIM_AT_SHOOT_POSE_1);
-    }
-
-    public static Step sweep(String name, Pose target, double sweepTime){
-        return new Step(name, target,Action.INTAKE,0,5.0,true,sweepTime,AIM_AT_SHOOT_POSE_1);
     }
 
     public static Step moveWhileIntaking(String name, Pose target) {
