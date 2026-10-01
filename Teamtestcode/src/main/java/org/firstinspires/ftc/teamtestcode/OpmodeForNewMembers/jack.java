@@ -6,8 +6,8 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-@Autonomous(name = "Four Way Move Auto", group = "Testing")
-public class FourWayMoveAuto extends LinearOpMode {
+@Autonomous(name = "Simple Parking Auto", group = "Meet0")
+public class jack extends LinearOpMode {
 
     DcMotor lf, rf, lb, rb;
     ElapsedTime timer = new ElapsedTime();
@@ -17,7 +17,15 @@ public class FourWayMoveAuto extends LinearOpMode {
     double speed = 0.4;
     double slowSpeed = 0.12;
 
+    // start on the wall next to the HIVE, facing the HIVE
+    // red and blue use the same moves, the parking frame is always on the robot's left
+    // inches are read off the field picture, not tested on the real field yet
+    double towardHive = 24;
+    double toSideLane = 44;
+    double pastHive = 76;
+    double intoFrame = 6;
 
+    @Override
     public void runOpMode() {
         lf = hardwareMap.get(DcMotor.class, "left_front");
         rf = hardwareMap.get(DcMotor.class, "right_front");
@@ -45,24 +53,22 @@ public class FourWayMoveAuto extends LinearOpMode {
         rb.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         telemetry.addLine("ready");
-        telemetry.addLine("forward, back, right, left, then forward a little");
+        telemetry.addLine("forward, left, forward past the HIVE, left into the frame");
         telemetry.update();
 
         waitForStart();
 
-        forward(24);
-        waitTime(0.5);
-        back(24);
-        waitTime(0.5);
-        right(24);
-        waitTime(0.5);
-        left(24);
-        waitTime(0.5);
-        forward(6);
+        forward(towardHive);
+        waitTime(0.3);
+        left(toSideLane);
+        waitTime(0.3);
+        forward(pastHive);
+        waitTime(0.3);
+        left(intoFrame);
 
         stopMotors();
 
-        telemetry.addLine("done");
+        telemetry.addLine("parked");
         telemetry.update();
         while (opModeIsActive()) {
             idle();
