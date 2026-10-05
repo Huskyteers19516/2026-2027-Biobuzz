@@ -1,5 +1,7 @@
 package org.firstinspires.ftc.teamtestcode.Opmode;
 
+import java.lang.annotation.Target;
+
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.CRServo;
@@ -9,12 +11,31 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 @Autonomous(name = "Meet0 Auto", group = "Meet0")
-public class Meet0Auto extends LinearOpMode {
 
+    private enum LaunchState{
+        IDLE,
+        PREPARE,
+        LAUNCH,
+    }
+    private enum AutonomousState {
+        Launch,
+        WAIT_FOR_LAUNCH,
+        
+    }
+public class Meet0Auto extends LinearOpMode {
+    private double TargetVelocity;
+    private AutonomousState autonomousState;
+    private int shotstofire = 0;
+    private LaunchState launchState;
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
     private DcMotor rightBack;
+//Feeder Variables
+    private ElapsedTime feederTimer = new ElapsedTime();
+    final double intakeTime = 0.25;
+    private ElapsedTime betweenShotTimer = new ElapsedTime();
+    final double timeBetweenShots = 0.25;
 
     private CRServo leftIntake;
     private CRServo rightIntake;
@@ -22,9 +43,11 @@ public class Meet0Auto extends LinearOpMode {
     private DcMotorEx launcher;
 
     private final ElapsedTime runtime = new ElapsedTime();
+    
 
     @Override
-    public void runOpMode() {
+    public void init() {
+        launchState = launchState.IDLE;
         leftFront = hardwareMap.get(DcMotor.class, "left_front");
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
@@ -73,7 +96,7 @@ public class Meet0Auto extends LinearOpMode {
         if (isStopRequested()) {
             return;
         }
-
+        
         runtime.reset();
 
         stopAll();
@@ -82,7 +105,35 @@ public class Meet0Auto extends LinearOpMode {
         telemetry.addData("Runtime", "%.1f s", runtime.seconds());
         telemetry.update();
     }
+    public void init_loop(){
 
+    }
+    @Override 
+    public void start() {
+
+    }
+
+    public void loop() {
+        switch (autonomousState){
+        case LAUNCH:
+            launch(true);
+            autonomousState = autonomousState.WAIT_FOR_LAUNCH;
+            break;
+        case WAIT_FOR_LAUNCH:
+            if(launch(false)){
+                shotstofire--;
+                if(shotstofire > 0){
+                    autonomousState = AutonomousState.Launch;
+                } else {
+                        leftDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                        rightDrive.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+                        launcher.setVelocity(0);
+
+                        autonomousState = AutonomousState.DRIVING_AWAY_FROM_GOAL;
+                }
+            }
+    }
+}
     private void stopAll() {
         leftFront.setPower(0.0);
         leftBack.setPower(0.0);
@@ -92,4 +143,31 @@ public class Meet0Auto extends LinearOpMode {
         rightIntake.setPower(0.0);
         launcher.setPower(0.0);
     }
+    boolean launch(boolean shotRequested){
+        switch(launchState){
+            case IDLE:
+                if(shotRequested){
+                    launchState = LaunchState.PREPARE;
+                }
+
+            case PREPARE:
+                launcher.setVelocity(TargetPower);
+                if(launcher.getVelocity() == TargetPower){
+                    launchState = LaunchState.LAUNCH;
+                    leftIntake.setPower(1);
+                    rightIntake.setPower(1);
+                    feederTimer.reset();
+                }
+            case LAUNCH:
+                if(feederTimer.seconds() > intakeTime){
+                    leftIntake.setPower(0);
+                    rightIntake.setower(0);
+                    if(betweenShotTimer.seconds() > timeBetweenShots){
+                        launchState = launchState.IDLE;
+                        return true;    
+                    } 
+                }     
+        } return false;
+    }
 }
+
