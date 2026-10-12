@@ -172,6 +172,138 @@ public class Meet0Auto extends LinearOpMode {
             setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         }
     }
+    //rotating variable needs more test
+    private static final int BLUE_TURN_90 = 500;
+    private static final int BLUE_TURN_180 = 1000;
 
+    // the arrow in graph two need to go across and turn true afterwards
+    private static final boolean BLUE_FIG2_PASSAGE_CLEAR = false;
+
+    private static final boolean BLUE_FIG2_EXTRA_SHOT = true;
+
+
+    // graph 1 blue
+    private void blueFig1() {
+        // if shoot close to mid point, turn 400 to 0
+        if (!blueDrive(400)) return;
+        if (!blueShoot()) return;
+
+        // turn left, upward in the graph
+        if (!blueTurn(-BLUE_TURN_90)) return;
+        if (!blueDrive(1100)) return;
+
+        // turn right, across the structure in middle.
+        if (!blueTurn(BLUE_TURN_90)) return;
+        if (!blueDrive(2400)) return;
+
+        // turn left, facing the blue frame.
+        if (!blueTurn(-BLUE_TURN_90)) return;
+        blueDrive(700);
+    }
+
+
+    // graph 2 blue
+    private void blueFig2() {
+        if (!BLUE_FIG2_PASSAGE_CLEAR) {
+            telemetry.addData("Status", "Fig 2 passage not confirmed");
+            telemetry.update();
+            return;
+        }
+
+        // follow the straight line until to the left side of midddle structure.
+        if (!blueDrive(3400)) return;
+
+        if (BLUE_FIG2_EXTRA_SHOT) {
+            // turn half a round and face left
+            if (!blueTurn(BLUE_TURN_180)) return;
+
+            // waiting for teammate to shoot, wait for 5 seconds
+            sleep(5000);
+            if (!blueShoot()) return;
+
+            if (!blueTurn(BLUE_TURN_90)) return;
+        } else {
+            if (!blueTurn(-BLUE_TURN_90)) return;
+        }
+
+        blueDrive(1600);
+    }
+
+    private boolean blueDrive(int ticks) {
+        return blueMove(0.35, ticks, ticks, 8.0);
+    }
+
+
+    private boolean blueTurn(int ticks) {
+        return blueMove(0.25, ticks, -ticks, 4.0);
+    }
+
+
+    private boolean blueDriveBusy() {
+        return leftFront.isBusy() || leftBack.isBusy()
+                || rightFront.isBusy() || rightBack.isBusy();
+    }
+
+
+    private boolean blueMove(double power, int leftTicks,
+                             int rightTicks, double timeoutSeconds) {
+        if (!opModeIsActive()) return false;
+        if (leftTicks == 0 && rightTicks == 0) return true;
+
+        try {
+            setMotorPower(0);
+            setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+
+            leftFront.setTargetPosition(leftTicks);
+            leftBack.setTargetPosition(leftTicks);
+            rightFront.setTargetPosition(rightTicks);
+            rightBack.setTargetPosition(rightTicks);
+
+            setMotorMode(DcMotor.RunMode.RUN_TO_POSITION);
+
+            ElapsedTime moveTimer = new ElapsedTime();
+            setMotorPower(Math.abs(power));
+
+            while (opModeIsActive()
+                    && moveTimer.seconds() < timeoutSeconds
+                    && blueDriveBusy()) {
+                idle();
+            }
+
+            boolean reached = opModeIsActive() && !blueDriveBusy();
+
+            if (!reached) {
+                telemetry.addData("Status", "Route stopped: move incomplete");
+                telemetry.update();
+            }
+
+            return reached;
+        } finally {
+            setMotorPower(0);
+            setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+    }
+
+
+    private boolean blueShoot() {
+        if (!opModeIsActive()) return false;
+
+        try {
+            launcher.setPower(0.8);
+            sleep(1500);
+
+            if (!opModeIsActive()) return false;
+
+            leftIntake.setPower(0.8);
+            rightIntake.setPower(0.8);
+            sleep(2000);
+
+            return opModeIsActive();
+        } finally {
+            leftIntake.setPower(0);
+            rightIntake.setPower(0);
+            launcher.setPower(0);
+        }
+    }
 
 }
