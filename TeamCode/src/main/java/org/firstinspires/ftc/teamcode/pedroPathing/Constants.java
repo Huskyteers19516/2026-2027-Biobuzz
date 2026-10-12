@@ -30,6 +30,7 @@ public class Constants {
     public static final String INTAKE = "intake";
     public static final String SERVO_ONE ="intake_servo";
     public static final String SERVO_TWO ="outtake_servo";
+    public static final String SERVO_THREE ="blocker";
 
     private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;

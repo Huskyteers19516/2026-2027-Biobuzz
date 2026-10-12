@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_M
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_ONE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_THREE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_TWO;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
 
@@ -68,6 +69,7 @@ public class DrivePinpointTeleOp extends OpMode {
     private DcMotor intake;
     private Servo intakeServo;
     private Servo outtakeServo;
+    private Servo blocker;
 
     private boolean lastBack = false;
 
@@ -82,6 +84,7 @@ public class DrivePinpointTeleOp extends OpMode {
         intake = hardwareMap.get(DcMotor.class,INTAKE);
         intakeServo=hardwareMap.get(Servo.class,SERVO_ONE);
         outtakeServo = hardwareMap.get(Servo.class,SERVO_TWO);
+        blocker = hardwareMap.get(Servo.class,SERVO_THREE);
         pinpointLeft = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
         pinpointRight = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
 
