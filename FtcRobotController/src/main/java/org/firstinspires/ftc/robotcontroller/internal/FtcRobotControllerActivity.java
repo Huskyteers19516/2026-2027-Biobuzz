@@ -843,5 +843,3 @@ public class FtcRobotControllerActivity extends Activity
     }
   }
 }
-
-
