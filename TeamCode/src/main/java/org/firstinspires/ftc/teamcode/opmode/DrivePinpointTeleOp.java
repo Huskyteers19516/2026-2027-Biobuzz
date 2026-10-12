@@ -22,6 +22,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
 
 
 @TeleOp(name = "Drive + Pinpoint TeleOp", group = "Testing")
@@ -57,6 +58,29 @@ public class DrivePinpointTeleOp extends OpMode {
     private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_RIGHT_Y_DIRECTION =
             GoBildaPinpointDriver.EncoderDirection.FORWARD;
 
+
+    private static final double FLOWER_1_X = 0.0;
+    private static final double FLOWER_1_Y = 0.0;
+
+    private static final double FLOWER_2_X = 0.0;
+    private static final double FLOWER_2_Y = 0.0;
+
+    private static final double FLOWER_3_X = 0.0;
+    private static final double FLOWER_3_Y = 0.0;
+
+    private static final double FLOWER_4_X = 0.0;
+    private static final double FLOWER_4_Y = 0.0;
+
+
+    private static final double FLOWER_RADIUS_IN = 18.0;
+
+    private static final double ZONE_EXIT_MARGIN_IN = 2.0;
+
+    private static final double INTAKE_SERVO_FLOWER_POSITION = 0.8;
+    private static final double INTAKE_SERVO_DEFAULT_POSITION = 0.2;
+
+    private enum RobotMode { DRIVE, FLOWER }
+
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
@@ -72,13 +96,20 @@ public class DrivePinpointTeleOp extends OpMode {
     private Servo blocker;
 
     private boolean lastBack = false;
+    private boolean lastA2 = false;
+    private boolean lastY2 = false;
+
+    private RobotMode mode = RobotMode.DRIVE;
+
+    private boolean manualMode = false;
+    private int currentZone = -1;
 
     @Override
     public void init() {
-        leftFront =hardwareMap.get(DcMotor.class,FRONT_LEFT_MOTOR_NAME);
-        leftBack = hardwareMap.get(DcMotor.class,BACK_LEFT_MOTOR_NAME);
-        rightFront= hardwareMap.get(DcMotor.class,FRONT_RIGHT_MOTOR_NAME);
-        rightBack= hardwareMap.get(DcMotor.class,BACK_RIGHT_MOTOR_NAME);
+        leftFront = initMotor(FRONT_LEFT_MOTOR_NAME, LEFT_SIDE_DIRECTION);
+        leftBack = initMotor(BACK_LEFT_MOTOR_NAME, LEFT_SIDE_DIRECTION);
+        rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, RIGHT_SIDE_DIRECTION);
+        rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, RIGHT_SIDE_DIRECTION);
         launcher = hardwareMap.get(DcMotor.class,LAUNCHER);
         transfer = hardwareMap.get(DcMotor.class,TRANSFER);
         intake = hardwareMap.get(DcMotor.class,INTAKE);
@@ -107,10 +138,16 @@ public class DrivePinpointTeleOp extends OpMode {
     }
 
     @Override
+    public void start() {
+        setStartPose();
+    }
+
+    @Override
     public void loop() {
         pinpointLeft.update();
         pinpointRight.update();
         handleResetButton();
+        updateMode();
 
         double drive = deadzone(-gamepad1.left_stick_y);
         double strafe = deadzone(gamepad1.left_stick_x);
@@ -129,6 +166,15 @@ public class DrivePinpointTeleOp extends OpMode {
         rightFront.setPower(rf / max * scale);
         rightBack.setPower(rb / max * scale);
 
+        if (mode == RobotMode.FLOWER) {
+            intakeServo.setPosition(INTAKE_SERVO_FLOWER_POSITION);
+        } else {
+            intakeServo.setPosition(INTAKE_SERVO_DEFAULT_POSITION);
+        }
+
+        telemetry.addData("Mode", "%s  (%s)", mode, manualMode ? "MANUAL - gp2 Y = back to auto" : "AUTO");
+        telemetry.addData("Flower zone", currentZone >= 0 ? "flower " + (currentZone + 1) : "none");
+        telemetry.addData("Intake servo", "%.2f", intakeServo.getPosition());
         telemetry.addData("Slow mode", gamepad1.right_bumper ? "ON" : "OFF");
         addPoseTelemetry();
     }
@@ -141,11 +187,73 @@ public class DrivePinpointTeleOp extends OpMode {
         rightBack.setPower(0);
     }
 
+    private void updateMode() {
+        boolean a2 = gamepad2.a;
+        boolean y2 = gamepad2.y;
+        if (a2 && !lastA2) {
+            manualMode = true;
+            mode = mode == RobotMode.DRIVE ? RobotMode.FLOWER : RobotMode.DRIVE;
+        }
+        if (y2 && !lastY2) {
+            manualMode = false;
+        }
+        lastA2 = a2;
+        lastY2 = y2;
+
+        Pose2D pose = robotPose();
+        double x = pose.getX(DistanceUnit.INCH);
+        double y = pose.getY(DistanceUnit.INCH);
+        double radius = FLOWER_RADIUS_IN;
+        if (mode == RobotMode.FLOWER) {
+            radius += ZONE_EXIT_MARGIN_IN;
+        }
+
+        if (Math.hypot(x - FLOWER_1_X, y - FLOWER_1_Y) <= radius) {
+            currentZone = 0;
+        } else if (Math.hypot(x - FLOWER_2_X, y - FLOWER_2_Y) <= radius) {
+            currentZone = 1;
+        } else if (Math.hypot(x - FLOWER_3_X, y - FLOWER_3_Y) <= radius) {
+            currentZone = 2;
+        } else if (Math.hypot(x - FLOWER_4_X, y - FLOWER_4_Y) <= radius) {
+            currentZone = 3;
+        } else {
+            currentZone = -1;
+        }
+
+        if (!manualMode) {
+            if (currentZone >= 0) {
+                mode = RobotMode.FLOWER;
+            } else {
+                mode = RobotMode.DRIVE;
+            }
+        }
+    }
+
+
+    private Pose2D robotPose() {
+        boolean leftOk = pinpointLeft.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
+        boolean rightOk = pinpointRight.getDeviceStatus() == GoBildaPinpointDriver.DeviceStatus.READY;
+        if (leftOk && rightOk) {
+            return new Pose2D(DistanceUnit.INCH,
+                    (pinpointLeft.getPosX(DistanceUnit.INCH) + pinpointRight.getPosX(DistanceUnit.INCH)) / 2.0,
+                    (pinpointLeft.getPosY(DistanceUnit.INCH) + pinpointRight.getPosY(DistanceUnit.INCH)) / 2.0,
+                    AngleUnit.RADIANS, pinpointLeft.getHeading(AngleUnit.RADIANS));
+        }
+        return rightOk ? pinpointRight.getPosition() : pinpointLeft.getPosition();
+    }
+
+    private void setStartPose() {
+        Pose2D start = new Pose2D(DistanceUnit.INCH,
+                FieldPoints.START_POSE.x(), FieldPoints.START_POSE.y(),
+                AngleUnit.RADIANS, FieldPoints.START_POSE.heading());
+        pinpointLeft.setPosition(start);
+        pinpointRight.setPosition(start);
+    }
+
     private void handleResetButton() {
         boolean back = gamepad1.back;
         if (back && !lastBack) {
-            pinpointLeft.resetPosAndIMU();
-            pinpointRight.resetPosAndIMU();
+            setStartPose();
         }
         lastBack = back;
     }
@@ -163,7 +271,7 @@ public class DrivePinpointTeleOp extends OpMode {
                 pinpointRight.getDeviceStatus());
         telemetry.addData("Freq", "L %.1f Hz  R %.1f Hz",
                 pinpointLeft.getFrequency(), pinpointRight.getFrequency());
-        telemetry.addLine("back = reset both Pinpoints");
+        telemetry.addLine("gp1 back = reset to START_POSE   gp2 A = switch mode");
     }
 
     private DcMotor initMotor(String name, DcMotorSimple.Direction direction) {
