@@ -12,7 +12,7 @@ import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 
 @Autonomous(name = "Mecanum Drive Auto (Square)", group = "Testing")
-public class MecanumDriveAuto extends LinearOpMode {
+public class    MecanumDriveAuto extends LinearOpMode {
 
     private static final boolean USE_TURNS = false;
     private static final boolean STRAFE_CALIBRATION = false;
