@@ -55,7 +55,7 @@ public class AliceAuto extends LinearOpMode {
             telemetry.addLine("Moving RIGHT");
             telemetry.update();
 
-            setDrivePower(-0.5);
+            setStrafeRight(0.5);
             sleep(1000);
 
             // Stop
@@ -70,6 +70,13 @@ public class AliceAuto extends LinearOpMode {
         leftFront.setPower(power);
         leftBack.setPower(power);
         rightFront.setPower(power);
+        rightBack.setPower(power);
+    }
+
+    private void setStrafeRight(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(-power);
+        rightFront.setPower(-power);
         rightBack.setPower(power);
     }
 
