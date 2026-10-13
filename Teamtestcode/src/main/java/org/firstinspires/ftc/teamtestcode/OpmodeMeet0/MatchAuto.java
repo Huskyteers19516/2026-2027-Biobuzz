@@ -14,6 +14,7 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamtestcode.pedropathing.Constants;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Autonomous(name = "Match Auto", group = "Auto")
@@ -85,29 +86,35 @@ public class MatchAuto extends LinearOpMode {
     private String aimTurnResult = "no turn yet";
     private int aimTurnPasses = 0;
 
+    private final List<String> missingDevices = new ArrayList<String>();
+
     @Override
     public void runOpMode() {
         follower = Constants.createFollower(hardwareMap);
         scanner = new GoalScanner(hardwareMap);
 
 
-        intake = hardwareMap.get(DcMotor.class, RobotTeleOp.INTAKE_NAME);
-        transfer = hardwareMap.get(DcMotor.class, RobotTeleOp.TRANSFER_NAME);
-        outtake = hardwareMap.get(DcMotorEx.class, RobotTeleOp.OUTTAKE_NAME);
-        launcherServo = hardwareMap.get(Servo.class, RobotTeleOp.LAUNCHER_SERVO_NAME);
+        intake = findDevice(DcMotor.class, RobotTeleOp.INTAKE_NAME);
+        transfer = findDevice(DcMotor.class, RobotTeleOp.TRANSFER_NAME);
+        outtake = findDevice(DcMotorEx.class, RobotTeleOp.OUTTAKE_NAME);
+        launcherServo = findDevice(Servo.class, RobotTeleOp.LAUNCHER_SERVO_NAME);
 
-        intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
-        transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
-        outtake.setDirection(RobotTeleOp.OUTTAKE_DIRECTION);
-
-        intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-
-        intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        if (intake != null) {
+            intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
+            intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+        if (transfer != null) {
+            transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
+            transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+            transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+        if (outtake != null) {
+            outtake.setDirection(RobotTeleOp.OUTTAKE_DIRECTION);
+            outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        }
 
         follower.setPose(FieldPoints.START_POSE);
 
@@ -123,7 +130,15 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.addData("Start pose", formatPose(FieldPoints.START_POSE));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
                 telemetry.addData("Localizer", Constants.PINPOINT_NAME);
-                telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
+                if (outtake != null) {
+                    telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
+                }
+                if (!missingDevices.isEmpty()) {
+                    telemetry.addData("!! NOT IN CONFIG", missingDevices);
+                    telemetry.addLine(canShoot()
+                            ? "Auto will run without them."
+                            : "Auto will drive the route but SKIP every shot.");
+                }
 
                 telemetry.addLine();
                 telemetry.addData("ALLIANCE", ALLIANCE);
@@ -216,7 +231,28 @@ public class MatchAuto extends LinearOpMode {
         return opModeIsActive() && !budgetExhausted();
     }
 
+    private <T> T findDevice(Class<T> type, String name) {
+        T device = hardwareMap.tryGet(type, name);
+        if (device == null) {
+            missingDevices.add(name);
+        }
+        return device;
+    }
+
+    private boolean canShoot() {
+        return outtake != null && transfer != null;
+    }
+
+    private void setIntakePower(double power) {
+        if (intake != null) {
+            intake.setPower(power);
+        }
+    }
+
     private void setAim(double position) {
+        if (launcherServo == null) {
+            return;
+        }
         launcherServo.setPosition(Range.clip(position,
                 RobotTeleOp.AIM_MIN_POSITION, RobotTeleOp.AIM_MAX_POSITION));
     }
@@ -236,7 +272,7 @@ public class MatchAuto extends LinearOpMode {
             follower.follow(path);
 
             if (step.intakeWhileDriving) {
-                intake.setPower(INTAKE_POWER);
+                setIntakePower(INTAKE_POWER);
             }
 
             while (canKeepRunning() && (follower.following() || follower.isBusy())) {
@@ -251,7 +287,7 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.update();
             }
 
-            intake.setPower(0.0);
+            setIntakePower(0.0);
 
             lastPathResult = timedOut
                     ? String.format("step %d TIMEOUT after %.1f s", index + 1, pathTimer.seconds())
@@ -294,6 +330,10 @@ public class MatchAuto extends LinearOpMode {
 
         if (shots <= 0) {
             lastShotResult = String.format("step %d requested 0 shots - skipped", index + 1);
+            return;
+        }
+        if (!canShoot()) {
+            lastShotResult = String.format("step %d SKIPPED - outtake / transfer not in config", index + 1);
             return;
         }
 
@@ -592,6 +632,10 @@ public class MatchAuto extends LinearOpMode {
         double seconds = Math.min(step.seconds, MAX_ACTION_SECONDS);
         boolean clamped = step.seconds > MAX_ACTION_SECONDS;
 
+        if (intake == null) {
+            return;
+        }
+
         intake.setPower(INTAKE_POWER);
 
         ElapsedTime intakeTimer = new ElapsedTime();
@@ -647,10 +691,14 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private void stopAll() {
-        intake.setPower(0.0);
-        transfer.setPower(0.0);
-        outtake.setVelocity(0.0);
-        outtake.setPower(0.0);
+        setIntakePower(0.0);
+        if (transfer != null) {
+            transfer.setPower(0.0);
+        }
+        if (outtake != null) {
+            outtake.setVelocity(0.0);
+            outtake.setPower(0.0);
+        }
         follower.stop();
         follower.update();
     }
