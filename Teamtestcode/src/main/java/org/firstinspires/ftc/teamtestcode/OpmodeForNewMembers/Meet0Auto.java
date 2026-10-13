@@ -83,6 +83,7 @@ public class Meet0Auto extends LinearOpMode {
         telemetry.update();
 
         waitForStart();
+        runtime.reset();
 
         if (opModeIsActive()) {
             telemetry.addData("Auto Path", "Driving out of the starting zone");
@@ -95,15 +96,13 @@ public class Meet0Auto extends LinearOpMode {
 
             telemetry.addData("Auto Path", "Parking robot");
             telemetry.update();
-            driveStraight(-0.3,400);
+            driveStraight(0.3,-400);
             // back up and return to parking
         }
 
         if (isStopRequested()) {
             return;
         }
-
-        runtime.reset();
 
         stopAll();
 
