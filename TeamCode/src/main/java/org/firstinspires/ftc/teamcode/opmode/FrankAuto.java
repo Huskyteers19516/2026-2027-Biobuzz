@@ -26,7 +26,7 @@ public class FrankAuto extends LinearOpMode {
         backLeft = hardwareMap.get(DcMotor.class, "left_back");
         backRight = hardwareMap.get(DcMotor.class, "right_back");
 
-        follower follower = Constants.createFollower(hardwareMap);
+        Follower follower = Constants.createFollower(hardwareMap);
 
         Pose start = new Pose(0.0, 0.0, Math.toRadians(0.0));
         follower.setPose(start);
