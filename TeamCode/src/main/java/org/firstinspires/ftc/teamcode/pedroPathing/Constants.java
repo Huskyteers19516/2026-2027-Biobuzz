@@ -26,6 +26,7 @@ public class Constants {
     public static final String FRONT_RIGHT_MOTOR_NAME = "right_front";
     public static final String BACK_RIGHT_MOTOR_NAME = "right_back";
     public static final String LAUNCHER = "launcher";
+    public static final String LAUNCHER_TWO = "launcher2";
     public static final String TRANSFER = "transfer";
     public static final String INTAKE = "intake";
     public static final String SERVO_ONE ="intake_servo";

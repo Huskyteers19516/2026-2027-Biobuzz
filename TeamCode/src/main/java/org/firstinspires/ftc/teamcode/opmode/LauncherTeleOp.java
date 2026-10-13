@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER_TWO;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -12,15 +13,18 @@ import com.qualcomm.robotcore.util.Range;
 @TeleOp(name = "Launcher TeleOp", group = "Testing")
 public class LauncherTeleOp extends OpMode {
 
-    private static final DcMotorSimple.Direction LAUNCHER_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    private static final DcMotorSimple.Direction LAUNCHER_ONE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction LAUNCHER_TWO_DIRECTION = DcMotorSimple.Direction.FORWARD;
 
-    private static final double START_VELOCITY = 2000.0;
+    private static final double START_VELOCITY = 1000.0;
+
     private static final double MIN_VELOCITY = 0.0;
     private static final double MAX_VELOCITY = 6000.0;
     private static final double SMALL_STEP = 100.0;
     private static final double BIG_STEP = 500.0;
 
-    private DcMotorEx launcher;
+    private DcMotorEx launcherOne;
+    private DcMotorEx launcherTwo;
 
     private double targetVelocity = START_VELOCITY;
     private boolean running = false;
@@ -33,11 +37,8 @@ public class LauncherTeleOp extends OpMode {
 
     @Override
     public void init() {
-        launcher = hardwareMap.get(DcMotorEx.class, LAUNCHER);
-        launcher.setDirection(LAUNCHER_DIRECTION);
-        launcher.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        launcher.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        launcher.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        launcherOne = initLauncher(LAUNCHER, LAUNCHER_ONE_DIRECTION);
+        launcherTwo = initLauncher(LAUNCHER_TWO, LAUNCHER_TWO_DIRECTION);
 
         telemetry.addData("Status", "Initialized");
     }
@@ -73,21 +74,34 @@ public class LauncherTeleOp extends OpMode {
         lastRight = right;
         lastLeft = left;
 
-        if (running) {
-            launcher.setVelocity(targetVelocity);
-        } else {
-            launcher.setVelocity(0);
-        }
+        setLauncherVelocity(running ? targetVelocity : 0.0);
 
+        double velocityOne = launcherOne.getVelocity();
+        double velocityTwo = launcherTwo.getVelocity();
         telemetry.addData("Launcher", running ? "ON" : "OFF");
         telemetry.addData("Target", "%.0f ticks/s", targetVelocity);
-        telemetry.addData("Measured", "%.0f ticks/s", launcher.getVelocity());
-        telemetry.addData("Power", "%.2f", launcher.getPower());
+        telemetry.addData("Launcher 1", "%.0f ticks/s  power %.2f", velocityOne, launcherOne.getPower());
+        telemetry.addData("Launcher 2", "%.0f ticks/s  power %.2f", velocityTwo, launcherTwo.getPower());
+        telemetry.addData("Difference", "%.0f ticks/s", velocityOne - velocityTwo);
         telemetry.addLine("A = on/off   dpad up/down = +-100   dpad right/left = +-500");
     }
 
     @Override
     public void stop() {
-        launcher.setVelocity(0);
+        setLauncherVelocity(0.0);
+    }
+
+    private void setLauncherVelocity(double velocity) {
+        launcherOne.setVelocity(velocity);
+        launcherTwo.setVelocity(velocity);
+    }
+
+    private DcMotorEx initLauncher(String name, DcMotorSimple.Direction direction) {
+        DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
+        motor.setDirection(direction);
+        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        return motor;
     }
 }
