@@ -42,7 +42,7 @@ public class ForwardBackAuto extends LinearOpMode {
         leftBack = hardwareMap.get(DcMotor.class, "left_back");
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
         rightBack = hardwareMap.get(DcMotor.class, "right_back");
-        intake = hardwareMap.get(DcMotor.class, "intake");
+        intake = hardwareMap.tryGet(DcMotor.class, "intake");
 
         leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
         leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
@@ -50,9 +50,11 @@ public class ForwardBackAuto extends LinearOpMode {
         rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
 
         setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        intake.setPower(0.0);
+        if (intake != null) {
+            intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        }
+        setIntakePower(0.0);
 
         setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         setMode(DcMotor.RunMode.RUN_USING_ENCODER);
@@ -72,12 +74,12 @@ public class ForwardBackAuto extends LinearOpMode {
 
         try {
             if (INTAKE_DURING_FORWARD) {
-                intake.setPower(INTAKE_POWER);
+                setIntakePower(INTAKE_POWER);
             }
 
             driveInches(FORWARD_INCHES, "forward");
 
-            intake.setPower(0.0);
+            setIntakePower(0.0);
             sleepSeconds(PAUSE_SECONDS);
 
             driveInches(-BACKWARD_INCHES, "backward");
@@ -158,7 +160,13 @@ public class ForwardBackAuto extends LinearOpMode {
 
     private void stopAll() {
         setDrivePower(0.0);
-        intake.setPower(0.0);
+        setIntakePower(0.0);
+    }
+
+    private void setIntakePower(double power) {
+        if (intake != null) {
+            intake.setPower(power);
+        }
     }
 
     private void setMode(DcMotor.RunMode mode) {
