@@ -18,6 +18,7 @@ public class FourWayMoveAuto extends LinearOpMode {
     double slowSpeed = 0.12;
     double moveInches = 24;
     double pause = 0.5;
+    boolean stopped = false;
 
     @Override
     public void runOpMode() {
@@ -41,10 +42,10 @@ public class FourWayMoveAuto extends LinearOpMode {
         lb.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         rb.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        lf.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rf.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        lb.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        rb.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        lf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rf.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        lb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        rb.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
         telemetry.addLine("ready");
         telemetry.addLine("forward, back, right, left, then forward a little");
@@ -64,8 +65,10 @@ public class FourWayMoveAuto extends LinearOpMode {
 
         stopMotors();
 
-        telemetry.addLine("done");
-        telemetry.update();
+        if (!stopped) {
+            telemetry.addLine("done");
+            telemetry.update();
+        }
         while (opModeIsActive()) {
             idle();
         }
@@ -93,14 +96,32 @@ public class FourWayMoveAuto extends LinearOpMode {
         int lbStart = lb.getCurrentPosition();
         int rbStart = rb.getCurrentPosition();
 
+        if (stopped) {
+            return;
+        }
+
         double maxTime = 2 + inches * 0.25;
         timer.reset();
 
         while (opModeIsActive() && timer.seconds() < maxTime) {
-            double moved = (Math.abs(lf.getCurrentPosition() - lfStart)
-                    + Math.abs(rf.getCurrentPosition() - rfStart)
-                    + Math.abs(lb.getCurrentPosition() - lbStart)
-                    + Math.abs(rb.getCurrentPosition() - rbStart)) / 4.0;
+            int lfMoved = Math.abs(lf.getCurrentPosition() - lfStart);
+            int rfMoved = Math.abs(rf.getCurrentPosition() - rfStart);
+            int lbMoved = Math.abs(lb.getCurrentPosition() - lbStart);
+            int rbMoved = Math.abs(rb.getCurrentPosition() - rbStart);
+            double moved = (lfMoved + rfMoved + lbMoved + rbMoved) / 4.0;
+
+            // a wheel whose encoder has not counted after 1 s means a loose encoder cable
+            // or a stuck wheel; without this the robot keeps driving until maxTime
+            double minTicks = 0.5 * ticksPerInch;
+            if (timer.seconds() > 1.0 && (lfMoved < minTicks || rfMoved < minTicks
+                    || lbMoved < minTicks || rbMoved < minTicks)) {
+                stopped = true;
+                stopMotors();
+                telemetry.addLine("STOPPED: an encoder is not counting");
+                telemetry.addData("ticks", "lf %d  rf %d  lb %d  rb %d", lfMoved, rfMoved, lbMoved, rbMoved);
+                telemetry.update();
+                return;
+            }
 
             double togo = target - moved;
             if (togo <= 0) {
