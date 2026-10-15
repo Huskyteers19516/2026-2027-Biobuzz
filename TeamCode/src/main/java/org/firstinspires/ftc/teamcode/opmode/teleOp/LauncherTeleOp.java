@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamcode.opmode.teleOp;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER_TWO;
