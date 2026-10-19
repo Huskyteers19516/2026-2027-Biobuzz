@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.api.Paths;

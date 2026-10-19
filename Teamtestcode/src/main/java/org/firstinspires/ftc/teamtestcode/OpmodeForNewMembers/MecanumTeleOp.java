@@ -12,7 +12,7 @@ public class MecanumTeleOp extends OpMode {
 
     private static final double LAUNCHER_VELOCITY = 2000.0;
 
-    private static final double DRIVE_POWER_SCALE = 0.75d;
+    private static final double DRIVE_POWER_SCALE = 1.0;
     private static final double STICK_DEADZONE = 0.05;
 
     private static final boolean LEFT_SIDE_REVERSED = false;
@@ -23,7 +23,7 @@ public class MecanumTeleOp extends OpMode {
     private DcMotor rightFront;
     private DcMotor rightBack;
 
-
+    private DcMotorEx launcher;
 
     private boolean launcherOn = false;
 
@@ -34,7 +34,7 @@ public class MecanumTeleOp extends OpMode {
         rightFront = hardwareMap.get(DcMotor.class, "right_front");
         rightBack = hardwareMap.get(DcMotor.class, "right_back");
 
-
+        launcher = hardwareMap.get(DcMotorEx.class, "launcher");
 
         DcMotorSimple.Direction leftDirection = LEFT_SIDE_REVERSED
                 ? DcMotorSimple.Direction.REVERSE
@@ -58,7 +58,12 @@ public class MecanumTeleOp extends OpMode {
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-
+        launcher.setDirection(LAUNCHER_REVERSED
+                ? DcMotorSimple.Direction.REVERSE
+                : DcMotorSimple.Direction.FORWARD);
+        launcher.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        launcher.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        launcher.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
         stopAll();
 
@@ -99,14 +104,18 @@ public class MecanumTeleOp extends OpMode {
             launcherOn = false;
         }
 
-
+        if (launcherOn) {
+            launcher.setVelocity(LAUNCHER_VELOCITY);
+        } else {
+            launcher.setVelocity(0.0);
+        }
 
         telemetry.addData("Drive", "axial %.2f  lateral %.2f  yaw %.2f", axial, lateral, yaw);
         telemetry.addData("Wheels", "LF %.2f  RF %.2f", leftFrontPower, rightFrontPower);
         telemetry.addData("Wheels", "LB %.2f  RB %.2f", leftBackPower, rightBackPower);
         telemetry.addData("Launcher", launcherOn ? "ON" : "OFF");
         telemetry.addData("Launcher target", "%.0f ticks/s", launcherOn ? LAUNCHER_VELOCITY : 0.0);
-
+        telemetry.addData("Launcher actual", "%.0f ticks/s", launcher.getVelocity());
     }
 
     @Override
@@ -123,6 +132,6 @@ public class MecanumTeleOp extends OpMode {
         leftBack.setPower(0.0);
         rightFront.setPower(0.0);
         rightBack.setPower(0.0);
-
+        launcher.setPower(0.0);
     }
 }

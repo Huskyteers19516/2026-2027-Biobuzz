@@ -1,7 +1,6 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import com.pedropathing.api.Paths;
-import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
