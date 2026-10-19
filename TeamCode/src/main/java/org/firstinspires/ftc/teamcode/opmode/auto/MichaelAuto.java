@@ -1,14 +1,9 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 //import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
-import com.qualcomm.robotcore.util.Range;
-import java.util.List;
 //Orientation
 // import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 // import com.qualcomm.robotcore.hardware.IMU;
@@ -36,21 +31,21 @@ public class MichaelAuto extends LinearOpMode {
         // RevHubOrientationOnRobot.UsbFacingDirection usbDirection = RevHubOrientationOnRobot.UsbFacingDirection.FORWARD;
         // imu.initialize(new IMU.Parameters(new RevHubOrientationOnRobot(logoDirection, usbDirection)));
 
-        leftFront.setDirection(DcMotor.Direction.FORWARD);
-        leftBack.setDirection(DcMotor.Direction.FORWARD);
-        rightFront.setDirection(DcMotor.Direction.REVERSE);
-        rightBack.setDirection(DcMotor.Direction.REVERSE);  
+        left_front.setDirection(DcMotor.Direction.FORWARD);
+        left_back.setDirection(DcMotor.Direction.FORWARD);
+        right_front.setDirection(DcMotor.Direction.REVERSE);
+        right_back.setDirection(DcMotor.Direction.REVERSE);  
         
         turnLeft();
         sleep(100);
         forwards();
         sleep(300);
-        stop();
+        powerOff();
 
 
     }
 
-    public void stop(){
+    public void powerOff(){
         left_front.setPower(0);
         left_back.setPower(0);
         right_front.setPower(0);
@@ -101,7 +96,7 @@ public class MichaelAuto extends LinearOpMode {
     //         turnLeft();
 
     //     }
-    //     stop();
+    //     powerOff();
 
     // }
 }
