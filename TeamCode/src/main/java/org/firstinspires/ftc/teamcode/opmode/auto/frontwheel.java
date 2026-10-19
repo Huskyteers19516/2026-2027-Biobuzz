@@ -1,23 +1,21 @@
 package org.firstinspires.ftc.teamcode.opmode.auto;
 
-public classfrontwheel package org.firstinspires.ftc.teamcode.opmode;
-
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
-
-
 @TeleOp(name = "Frank Front Wheels TeleOp", group = "Test")
-public class FrontWheelTeleOp extends LinearOpMode {
+public class frontwheel extends LinearOpMode {
+
+
 
     private static final double NORMAL_POWER = 0.45;
     private static final double SLOW_POWER = 0.25;
     private static final double STEERING_GAIN = 0.75;
     private static final double DEADBAND = 0.05;
 
-    // Directions copied from the team's previously supplied configuration.
+
     private static final DcMotorSimple.Direction LEFT_DIRECTION =
             DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_DIRECTION =
@@ -83,7 +81,6 @@ public class FrontWheelTeleOp extends LinearOpMode {
                 telemetry.addData("Rear wheel command", "Zero power / FLOAT");
                 telemetry.addData("Stop held", gamepad1.b);
                 telemetry.update();
-                idle();
             }
         } finally {
             stopMotor(frontLeft);
@@ -118,5 +115,3 @@ public class FrontWheelTeleOp extends LinearOpMode {
     }
 }
 
-{
-}
