@@ -1,10 +1,11 @@
-package org.firstinspires.ftc.teamcode.opmode;
+package org.firstinspires.ftc.teamtestcode.OpmodeForNewMembers;
 
 import com.pedropathing.api.Paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -12,11 +13,12 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import org.firstinspires.ftc.teamtestcode.pedropathing.Constants;
 
 import java.util.List;
 
 @Autonomous(name = "Match Auto", group = "Competition")
+@Disabled // RobotTeleOp holds placeholder values - remove once the real ones are filled in
 public class MatchAuto extends LinearOpMode {
 
     private static final double OUTTAKE_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
@@ -31,8 +33,8 @@ public class MatchAuto extends LinearOpMode {
     private static final double MAX_ACTION_SECONDS = 8.0;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
 
-    private static final double AUTONOMOUS_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
-    private static final double MIN_PATH_LENGTH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
+    private static final double AUTONOMOUS_BUDGET_SECONDS = FieldPoint.AUTONOMOUS_BUDGET_SECONDS;
+    private static final double MIN_PATH_LENGTH_INCHES = FieldPoint.MIN_PATH_LENGTH_INCHES;
 
     private static final double AIM_DEFAULT_POSITION = RobotTeleOp.AIM_START_POSITION;
 
@@ -70,22 +72,22 @@ public class MatchAuto extends LinearOpMode {
         outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        follower.setPose(FieldPoints.START_POSE);
+        follower.setPose(FieldPoint.START_POSE);
 
-        List<FieldPoints.Step> mission = FieldPoints.mission();
+        List<FieldPoint.Step> mission = FieldPoint.mission();
 
         while (!isStarted() && !isStopRequested()) {
             follower.localizer.update();
             telemetry.addLine("Match Auto");
             telemetry.addData("Steps", mission.size());
             telemetry.addData("Budget", "%.1f s", AUTONOMOUS_BUDGET_SECONDS);
-            telemetry.addData("Start pose", formatPose(FieldPoints.START_POSE));
+            telemetry.addData("Start pose", formatPose(FieldPoint.START_POSE));
             telemetry.addData("Measured pose", formatPose(follower.pose()));
             telemetry.addData("Localizer", Constants.PINPOINT_NAME);
             telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
-            if (!FieldPoints.POINTS_CONFIRMED) {
+            if (!FieldPoint.POINTS_CONFIRMED) {
                 telemetry.addLine("!! FIELD POINTS NOT CONFIRMED - AUTO WILL NOT MOVE");
-                telemetry.addLine("Measure the real coordinates in FieldPoints.java,");
+                telemetry.addLine("Measure the real coordinates in FieldPoint.java,");
                 telemetry.addLine("then set POINTS_CONFIRMED = true.");
             }
 
@@ -93,12 +95,12 @@ public class MatchAuto extends LinearOpMode {
             telemetry.update();
         }
 
-        if (!FieldPoints.POINTS_CONFIRMED) {
+        if (!FieldPoint.POINTS_CONFIRMED) {
             stopAll();
 
             while (opModeIsActive()) {
                 telemetry.addLine("!! FIELD POINTS NOT CONFIRMED - REFUSING TO DRIVE");
-                telemetry.addLine("The poses in FieldPoints.java are placeholders.");
+                telemetry.addLine("The poses in FieldPoint.java are placeholders.");
                 telemetry.addLine("Measure them, then set POINTS_CONFIRMED = true.");
                 telemetry.update();
             }
@@ -113,7 +115,7 @@ public class MatchAuto extends LinearOpMode {
         try {
             setAim(AIM_DEFAULT_POSITION);
 
-            follower.setPose(FieldPoints.START_POSE);
+            follower.setPose(FieldPoint.START_POSE);
             follower.update();
             runtime.reset();
 
@@ -155,7 +157,7 @@ public class MatchAuto extends LinearOpMode {
                 RobotTeleOp.AIM_MIN_POSITION, RobotTeleOp.AIM_MAX_POSITION));
     }
 
-    private void runStep(int index, int total, FieldPoints.Step step) {
+    private void runStep(int index, int total, FieldPoint.Step step) {
         Pose startPose = follower.pose();
         double legLength = startPose.distance(step.target);
         boolean timedOut = false;
@@ -223,7 +225,7 @@ public class MatchAuto extends LinearOpMode {
         }
     }
 
-    private void runShoot(int index, int total, FieldPoints.Step step) {
+    private void runShoot(int index, int total, FieldPoint.Step step) {
         int shots = step.shots;
 
         if (shots <= 0) {
@@ -301,7 +303,7 @@ public class MatchAuto extends LinearOpMode {
         }
     }
 
-    private void runIntake(int index, int total, FieldPoints.Step step) {
+    private void runIntake(int index, int total, FieldPoint.Step step) {
         double seconds = Math.min(step.seconds, MAX_ACTION_SECONDS);
         boolean clamped = step.seconds > MAX_ACTION_SECONDS;
 
@@ -330,7 +332,7 @@ public class MatchAuto extends LinearOpMode {
         }
     }
 
-    private void addStepTelemetry(int index, int total, FieldPoints.Step step, String phase) {
+    private void addStepTelemetry(int index, int total, FieldPoint.Step step, String phase) {
         Pose pose = follower.pose();
         telemetry.addData("Step", "%d / %d  %s", index + 1, total, step.name);
         telemetry.addData("Phase", phase);

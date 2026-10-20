@@ -34,10 +34,13 @@ public class Constants {
     private static final boolean MANUAL_BRAKE_MODE = true;
     private static final double POWER_THRESHOLD = 0.01;
 
-    public static final String PINPOINT_NAME = "pinpoint";
+    public static final String PINPOINT_NAME = "pinpoint_left";
+    public static final String SECONDARY_PINPOINT_NAME = "pinpoint_right";
 
-    private static final double PINPOINT_X_POD_OFFSET_IN = 0.0;
-    private static final double PINPOINT_Y_POD_OFFSET_IN = 0.0;
+    private static final double PINPOINT_X_POD_OFFSET_MM = -84.0;
+    private static final double PINPOINT_Y_POD_OFFSET_MM = -168.0;
+    private static final DistanceUnit PINPOINT_OFFSET_UNIT = DistanceUnit.MM;
+    private static final DistanceUnit PINPOINT_GLOBAL_UNIT = DistanceUnit.INCH;
     private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_X_POD_DIRECTION =
             GoBildaPinpointDriver.EncoderDirection.FORWARD;
     private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_Y_POD_DIRECTION =
@@ -84,10 +87,10 @@ public class Constants {
     public static PinpointConfig pinpointConfig() {
         return new PinpointConfig(c -> {
             c.name.set(PINPOINT_NAME);
-            c.xPodOffset.set(PINPOINT_X_POD_OFFSET_IN);
-            c.yPodOffset.set(PINPOINT_Y_POD_OFFSET_IN);
-            c.offsetUnits.set(DistanceUnit.INCH);
-            c.globalDistanceUnit.set(DistanceUnit.INCH);
+            c.xPodOffset.set(PINPOINT_X_POD_OFFSET_MM);
+            c.yPodOffset.set(PINPOINT_Y_POD_OFFSET_MM);
+            c.offsetUnits.set(PINPOINT_OFFSET_UNIT);
+            c.globalDistanceUnit.set(PINPOINT_GLOBAL_UNIT);
             c.xPodDirection.set(PINPOINT_X_POD_DIRECTION);
             c.yPodDirection.set(PINPOINT_Y_POD_DIRECTION);
             c.podType.set(PINPOINT_POD_TYPE);
