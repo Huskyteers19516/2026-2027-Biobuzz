@@ -6,7 +6,6 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -24,8 +23,8 @@ public class RobotTeleOp extends OpMode {
     public static final String TRANSFER_NAME = "transfer";
     public static final String OUTTAKE_NAME = "outtake";
 //    public static final String LAUNCHER_SERVO_NAME = "launcher_servo";
-//    private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
-//    private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
+    private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
+    private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
 
     private static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
@@ -90,7 +89,6 @@ public class RobotTeleOp extends OpMode {
     private DcMotor intake;
     private DcMotor transfer;
     private DcMotorEx outtake;
-    private Servo launcherServo;
     private GoBildaPinpointDriver pinpointLeft;
     private GoBildaPinpointDriver pinpointRight;
     private GoBildaPinpointDriver pinpointPrimary;
@@ -130,9 +128,8 @@ public class RobotTeleOp extends OpMode {
         intake = hardwareMap.get(DcMotor.class, INTAKE_NAME);
         transfer = hardwareMap.get(DcMotor.class, TRANSFER_NAME);
         outtake = hardwareMap.get(DcMotorEx.class, OUTTAKE_NAME);
-//        launcherServo = hardwareMap.get(Servo.class, LAUNCHER_SERVO_NAME);
-//        pinpointLeft = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
-//        pinpointRight = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
+        pinpointLeft = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
+        pinpointRight = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
         pinpointPrimary = PRIMARY_PINPOINT_IS_LEFT ? pinpointLeft : pinpointRight;
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
@@ -172,17 +169,13 @@ public class RobotTeleOp extends OpMode {
 
     @Override
     public void init_loop() {
-        pinpointLeft.update();
-        pinpointRight.update();
+        updatePinpoint(pinpointLeft);
+        updatePinpoint(pinpointRight);
 
         telemetry.addData("Status", "Init - waiting for START");
-        //telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
-        telemetry.addData("Pinpoint L", "%s  freq %.1f Hz  encX %d  encY %d",
-                pinpointLeft.getDeviceStatus(), pinpointLeft.getFrequency(),
-                pinpointLeft.getEncoderX(), pinpointLeft.getEncoderY());
-        telemetry.addData("Pinpoint R", "%s  freq %.1f Hz  encX %d  encY %d",
-                pinpointRight.getDeviceStatus(), pinpointRight.getFrequency(),
-                pinpointRight.getEncoderX(), pinpointRight.getEncoderY());
+        telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+        telemetry.addData("Pinpoint L", pinpointEncoderSummary(pinpointLeft));
+        telemetry.addData("Pinpoint R", pinpointEncoderSummary(pinpointRight));
         telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
         telemetry.addLine("Spin the outtake wheel by hand: the tick count must change.");
     }
@@ -201,7 +194,6 @@ public class RobotTeleOp extends OpMode {
         outtakeEncoderWarning = false;
         outtakeEncoderTimer.reset();
         aimPosition = Range.clip(AIM_START_POSITION, AIM_MIN_POSITION, AIM_MAX_POSITION);
-        launcherServo.setPosition(aimPosition);
     }
 
     @Override
@@ -224,10 +216,11 @@ public class RobotTeleOp extends OpMode {
         boolean firePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
         rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
 
-        pinpointLeft.update();
-        pinpointRight.update();
+        updatePinpoint(pinpointLeft);
+        updatePinpoint(pinpointRight);
 
-        GoBildaPinpointDriver.DeviceStatus primaryStatus = pinpointPrimary.getDeviceStatus();
+        GoBildaPinpointDriver.DeviceStatus primaryStatus =
+                pinpointPrimary == null ? null : pinpointPrimary.getDeviceStatus();
         primaryHeadingValid = primaryStatus == GoBildaPinpointDriver.DeviceStatus.READY;
 
         if (slowTogglePressed) {
@@ -244,7 +237,6 @@ public class RobotTeleOp extends OpMode {
         }
         if (intakeTogglePressed) {
             intakeOn = !intakeOn;
-            transferLatched = intakeOn;
         }
         if (transferOnPressed) {
             transferLatched = true;
@@ -273,7 +265,6 @@ public class RobotTeleOp extends OpMode {
         if (aimLeftPressed) {
             aimPosition = Range.clip(aimPosition - AIM_STEP_FINE, AIM_MIN_POSITION, AIM_MAX_POSITION);
         }
-        launcherServo.setPosition(aimPosition);
 
         double measuredVelocity = outtake.getVelocity();
         advanceFireSequence(firePressed && !cancelPressed, measuredVelocity);
@@ -293,8 +284,10 @@ public class RobotTeleOp extends OpMode {
             transferPower = 0.0;
         } else if (fireState == FireState.FEED) {
             transferPower = FEED_POWER;
+        } else if (gamepad1.left_bumper) {
+            transferPower = -TRANSFER_POWER;
         } else {
-            transferPower = transferLatched ? TRANSFER_POWER : 0.0;
+            transferPower = (intakeOn || transferLatched) ? TRANSFER_POWER : 0.0;
         }
         transfer.setPower(transferPower);
 
@@ -453,25 +446,48 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Heading offset", "%.1f deg", Math.toDegrees(headingOffsetRadians));
         telemetry.addData("Heading reset", headingResetResult);
 
-//        telemetry.addData("Primary Pinpoint",
-//                PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
-        telemetry.addData("Primary status", primaryStatus);
-        telemetry.addData("Primary freq", "%.1f Hz", pinpointPrimary.getFrequency());
-        telemetry.addData("Pinpoint L", "x %.1f in  y %.1f in  h %.1f deg  %s",
-                pinpointLeft.getPosX(DistanceUnit.INCH),
-                pinpointLeft.getPosY(DistanceUnit.INCH),
-                pinpointLeft.getHeading(AngleUnit.DEGREES),
-                pinpointLeft.getDeviceStatus());
-        telemetry.addData("Pinpoint R", "x %.1f in  y %.1f in  h %.1f deg  %s",
-                pinpointRight.getPosX(DistanceUnit.INCH),
-                pinpointRight.getPosY(DistanceUnit.INCH),
-                pinpointRight.getHeading(AngleUnit.DEGREES),
-                pinpointRight.getDeviceStatus());
+        telemetry.addData("Primary Pinpoint",
+                PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+        telemetry.addData("Primary status", primaryStatus == null ? "NOT CONFIGURED" : primaryStatus);
+        if (pinpointPrimary != null) {
+            telemetry.addData("Primary freq", "%.1f Hz", pinpointPrimary.getFrequency());
+        }
+        telemetry.addData("Pinpoint L", pinpointPoseSummary(pinpointLeft));
+        telemetry.addData("Pinpoint R", pinpointPoseSummary(pinpointRight));
+    }
+
+    private void updatePinpoint(GoBildaPinpointDriver pinpoint) {
+        if (pinpoint != null) {
+            pinpoint.update();
+        }
+    }
+
+    private String pinpointEncoderSummary(GoBildaPinpointDriver pinpoint) {
+        if (pinpoint == null) {
+            return "NOT CONFIGURED";
+        }
+        return String.format("%s  freq %.1f Hz  encX %d  encY %d",
+                pinpoint.getDeviceStatus(), pinpoint.getFrequency(),
+                pinpoint.getEncoderX(), pinpoint.getEncoderY());
+    }
+
+    private String pinpointPoseSummary(GoBildaPinpointDriver pinpoint) {
+        if (pinpoint == null) {
+            return "NOT CONFIGURED";
+        }
+        return String.format("x %.1f in  y %.1f in  h %.1f deg  %s",
+                pinpoint.getPosX(DistanceUnit.INCH),
+                pinpoint.getPosY(DistanceUnit.INCH),
+                pinpoint.getHeading(AngleUnit.DEGREES),
+                pinpoint.getDeviceStatus());
     }
 
     private void configurePinpoint(GoBildaPinpointDriver pinpoint, double xOffsetMm, double yOffsetMm,
                                    GoBildaPinpointDriver.EncoderDirection xDirection,
                                    GoBildaPinpointDriver.EncoderDirection yDirection) {
+        if (pinpoint == null) {
+            return;
+        }
         pinpoint.setOffsets(xOffsetMm, yOffsetMm, DistanceUnit.MM);
         pinpoint.setEncoderResolution(PINPOINT_POD_TYPE);
         pinpoint.setEncoderDirections(xDirection, yDirection);

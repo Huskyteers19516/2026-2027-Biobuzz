@@ -8,7 +8,6 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -62,7 +61,6 @@ public class MatchAuto extends LinearOpMode {
     private DcMotor intake;
     private DcMotor transfer;
     private DcMotorEx outtake;
-    private Servo launcherServo;
     private DcMotor LeftFront;
     private DcMotor Leftback;
     private DcMotor riightfront;
@@ -95,7 +93,6 @@ public class MatchAuto extends LinearOpMode {
         intake = hardwareMap.get(DcMotor.class, RobotTeleOp.INTAKE_NAME);
         transfer = hardwareMap.get(DcMotor.class, RobotTeleOp.TRANSFER_NAME);
         outtake = hardwareMap.get(DcMotorEx.class, RobotTeleOp.OUTTAKE_NAME);
-        launcherServo = hardwareMap.get(Servo.class, RobotTeleOp.LAUNCHER_SERVO_NAME);
 
         intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
         transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
@@ -167,8 +164,6 @@ public class MatchAuto extends LinearOpMode {
             }
 
             try {
-                setAim(AIM_DEFAULT_POSITION);
-
                 follower.setPose(FieldPoints.START_POSE);
                 tick();
                 runtime.reset();
@@ -215,11 +210,6 @@ public class MatchAuto extends LinearOpMode {
 
     private boolean canKeepRunning() {
         return opModeIsActive() && !budgetExhausted();
-    }
-
-    private void setAim(double position) {
-        launcherServo.setPosition(Range.clip(position,
-                RobotTeleOp.AIM_MIN_POSITION, RobotTeleOp.AIM_MAX_POSITION));
     }
 
     private void runStep(int index, int total, FieldPoints.Step step) {
@@ -458,14 +448,12 @@ public class MatchAuto extends LinearOpMode {
         aimValueUsed = aimForRange(aimRange);
         aimNote = String.format("%s %d%% range %.1f in -> aim %.3f (bearing %.1f -> %.1f deg)",
                 aimCluster, aimPercent, aimRange, aimValueUsed, aimBearingBefore, aimBearingAfter);
-        setAim(aimValueUsed);
     }
 
     private void commitFallback(FieldPoints.Step step, String reason) {
         aimUsedFallback = true;
         aimValueUsed = step.aim;
         aimNote = "FALLBACK static aim " + String.format("%.3f", step.aim) + " - " + reason;
-        setAim(aimValueUsed);
     }
 
     private double remainingAimSeconds(ElapsedTime aimTimer) {
