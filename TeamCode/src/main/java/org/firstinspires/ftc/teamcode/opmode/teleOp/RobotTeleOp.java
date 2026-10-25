@@ -23,9 +23,9 @@ public class RobotTeleOp extends OpMode {
     public static final String INTAKE_NAME = "intake";
     public static final String TRANSFER_NAME = "transfer";
     public static final String OUTTAKE_NAME = "outtake";
-    public static final String LAUNCHER_SERVO_NAME = "launcher_servo";
-    private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
-    private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
+//    public static final String LAUNCHER_SERVO_NAME = "launcher_servo";
+//    private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
+//    private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
 
     private static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
@@ -130,9 +130,9 @@ public class RobotTeleOp extends OpMode {
         intake = hardwareMap.get(DcMotor.class, INTAKE_NAME);
         transfer = hardwareMap.get(DcMotor.class, TRANSFER_NAME);
         outtake = hardwareMap.get(DcMotorEx.class, OUTTAKE_NAME);
-        launcherServo = hardwareMap.get(Servo.class, LAUNCHER_SERVO_NAME);
-        pinpointLeft = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
-        pinpointRight = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
+//        launcherServo = hardwareMap.get(Servo.class, LAUNCHER_SERVO_NAME);
+//        pinpointLeft = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
+//        pinpointRight = hardwareMap.get(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
         pinpointPrimary = PRIMARY_PINPOINT_IS_LEFT ? pinpointLeft : pinpointRight;
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
@@ -176,7 +176,7 @@ public class RobotTeleOp extends OpMode {
         pinpointRight.update();
 
         telemetry.addData("Status", "Init - waiting for START");
-        telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+        //telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
         telemetry.addData("Pinpoint L", "%s  freq %.1f Hz  encX %d  encY %d",
                 pinpointLeft.getDeviceStatus(), pinpointLeft.getFrequency(),
                 pinpointLeft.getEncoderX(), pinpointLeft.getEncoderY());
@@ -244,6 +244,7 @@ public class RobotTeleOp extends OpMode {
         }
         if (intakeTogglePressed) {
             intakeOn = !intakeOn;
+            transferLatched = intakeOn;
         }
         if (transferOnPressed) {
             transferLatched = true;
@@ -452,8 +453,8 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Heading offset", "%.1f deg", Math.toDegrees(headingOffsetRadians));
         telemetry.addData("Heading reset", headingResetResult);
 
-        telemetry.addData("Primary Pinpoint",
-                PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+//        telemetry.addData("Primary Pinpoint",
+//                PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
         telemetry.addData("Primary status", primaryStatus);
         telemetry.addData("Primary freq", "%.1f Hz", pinpointPrimary.getFrequency());
         telemetry.addData("Pinpoint L", "x %.1f in  y %.1f in  h %.1f deg  %s",
