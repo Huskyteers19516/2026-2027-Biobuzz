@@ -17,7 +17,7 @@ import org.firstinspires.ftc.teamtestcode.pedropathing.Constants;
 
 import java.util.List;
 
-@Autonomous(name = "Match Auto", group = "Competition")
+@Autonomous(name = "New Members Match Auto", group = "Competition")
 @Disabled // RobotTeleOp holds placeholder values - remove once the real ones are filled in
 public class MatchAuto extends LinearOpMode {
 

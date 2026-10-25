@@ -1,9 +1,9 @@
 package org.firstinspires.ftc.teamtestcode;
 
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_LEFT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_RIGHT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.BACK_LEFT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.BACK_RIGHT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.FRONT_LEFT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.FRONT_RIGHT_MOTOR_NAME;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;

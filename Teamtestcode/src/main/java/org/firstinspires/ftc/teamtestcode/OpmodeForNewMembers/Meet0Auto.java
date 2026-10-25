@@ -286,24 +286,7 @@ public class Meet0Auto extends LinearOpMode {
 
 
     private boolean blueShoot() {
-        if (!opModeIsActive()) return false;
-
-        try {
-            launcher.setPower(0.8);
-            sleep(1500);
-
-            if (!opModeIsActive()) return false;
-
-            leftIntake.setPower(0.8);
-            rightIntake.setPower(0.8);
-            sleep(2000);
-
-            return opModeIsActive();
-        } finally {
-            leftIntake.setPower(0);
-            rightIntake.setPower(0);
-            launcher.setPower(0);
-        }
+        return opModeIsActive();
     }
 
 }

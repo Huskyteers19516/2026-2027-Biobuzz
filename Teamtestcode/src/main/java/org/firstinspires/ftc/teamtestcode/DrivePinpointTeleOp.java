@@ -1,15 +1,15 @@
 package org.firstinspires.ftc.teamtestcode;
 
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_LEFT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_RIGHT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_MOTOR_NAME;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_ONE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_THREE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_TWO;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.BACK_LEFT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.BACK_RIGHT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.FRONT_RIGHT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.FRONT_LEFT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.INTAKE;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.LAUNCHER;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.SERVO_ONE;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.SERVO_THREE;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.SERVO_TWO;
+import static org.firstinspires.ftc.teamtestcode.pedropathing.Constants.TRANSFER;
 
 
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
@@ -23,7 +23,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.Pose2D;
-import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
+import org.firstinspires.ftc.teamtestcode.OpmodeMeet0.FieldPoints;
 
 
 @TeleOp(name = "Drive + Pinpoint TeleOp", group = "Testing")
