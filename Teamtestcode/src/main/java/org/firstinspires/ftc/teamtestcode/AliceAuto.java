@@ -1,12 +1,13 @@
-package org.firstinspires.ftc.teamcode.opmode.auto;
+//copy import statements and variables
+package org.firstinspires.ftc.teamtestcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 
-@Autonomous(name = "MsRamirez Auto", group = "Robot")
+@Autonomous(name = "Alice Auto", group = "Robot")
 
-public class MsRamirezAuto extends LinearOpMode {
+public class AliceAuto extends LinearOpMode {
     private DcMotor leftFront=null;
     private DcMotor leftBack=null;
     private DcMotor rightFront=null;
@@ -45,8 +46,8 @@ public class MsRamirezAuto extends LinearOpMode {
             stopMotors();
             sleep(500);
 
-            // Move backward for 1 second
-            telemetry.addLine("Moving BACKWARD");
+            // Move right for 1 second
+            telemetry.addLine("Moving RIGHT");
             telemetry.update();
 
             setDrivePower(-0.5);
@@ -63,6 +64,16 @@ public class MsRamirezAuto extends LinearOpMode {
     private void setDrivePower(double power) {
         leftFront.setPower(power);
         leftBack.setPower(power);
+        rightFront.setPower(power);
+        rightBack.setPower(power);
+    }
+
+    private void setTurnRight(double power) {
+        leftFront.setPower(power);
+        leftBack.setPower(power);
+    }
+
+    private void setTurnLeft(double power) {
         rightFront.setPower(power);
         rightBack.setPower(power);
     }
