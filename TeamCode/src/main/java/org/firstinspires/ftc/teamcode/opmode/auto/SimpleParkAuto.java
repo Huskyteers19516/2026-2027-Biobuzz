@@ -1,82 +1,106 @@
 package org.firstinspires.ftc.teamcode.opmode.auto;
 
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER_TWO;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_THREE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
+
+import com.pedropathing.api.Paths;
+import com.pedropathing.follower.Follower;
+import com.pedropathing.math.Pose;
+import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
-/**
- * Simple park auto for the basic 4-motor chassis.
- *
- * Path: drive forward, turn toward the parking zone, drive into the zone.
- * During init, press X for BLUE or B for RED. RED mirrors the turn direction.
- * Measure the field and tune the distances below before using it in a match.
- */
+import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 @Autonomous(name = "Simple Park Auto", group = "Meet0")
 public class SimpleParkAuto extends LinearOpMode {
 
-    // Path. Set TURN_DEGREES to 0 to drive straight into the zone.
-    private static final double START_DELAY_SECONDS = 0.0;
-    private static final double FORWARD_INCHES = 24.0;
-    private static final double TURN_DEGREES = 90.0;   // positive = left on BLUE
-    private static final double PARK_INCHES = 24.0;
+    private static final Pose START = FieldPoints.START_POSE;
 
-    private static final double DRIVE_SPEED = 0.4;
-    private static final double TURN_SPEED = 0.3;
+    private List<Step> route() {
+        List<Step> steps = new ArrayList<>();
 
-    private static final double COUNTS_PER_MOTOR_REV = 537.7;
-    private static final double DRIVE_GEAR_REDUCTION = 1.0;
-    private static final double WHEEL_DIAMETER_INCHES = 3.78;
-    private static final double COUNTS_PER_INCH =
-            (COUNTS_PER_MOTOR_REV * DRIVE_GEAR_REDUCTION) / (WHEEL_DIAMETER_INCHES * Math.PI);
+        steps.add(step("Drive to shoot 1")
+                .from(FieldPoints.START_POSE)
+                .to(FieldPoints.SHOOT_POSE_1)
+                .shoot(1.5)
+                .pause(0.5));
 
-    // Distance between left and right wheels. Tune until a 90 degree turn is 90 degrees.
-    private static final double TRACK_WIDTH_INCHES = 14.0;
+        steps.add(step("Park")
+                .from(FieldPoints.SHOOT_POSE_1)
+                .to(FieldPoints.PARK_POSE));
 
-    private static final double LEG_TIMEOUT_BASE_SECONDS = 2.0;
-    private static final double LEG_TIMEOUT_SECONDS_PER_INCH = 0.25;
-    private static final double LEG_TIMEOUT_REFERENCE_SPEED = 0.4;
-    private static final double PAUSE_SECONDS = 0.25;
+        return steps;
+    }
 
-    private DcMotor leftFront;
-    private DcMotor leftBack;
-    private DcMotor rightFront;
-    private DcMotor rightBack;
+    private static final double DEFAULT_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
+    private static final double AUTO_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
+    private static final double MIN_PATH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
 
-    private final ElapsedTime legTimer = new ElapsedTime();
-    private boolean isRed = false;
-    private String legResult = "none";
+    private static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    private static final DcMotorSimple.Direction LAUNCHER_ONE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction LAUNCHER_TWO_DIRECTION = DcMotorSimple.Direction.FORWARD;
+
+    private static final double SHOOT_VELOCITY = 1000.0;
+    private static final double SHOOT_TOLERANCE = 100.0;
+    private static final double SPINUP_TIMEOUT_SECONDS = 2.5;
+    private static final double FEED_TRANSFER_POWER = 1.0;
+    private static final double FEED_INTAKE_POWER = 1.0;
+    private static final double INTAKE_POWER = 1.0;
+
+    private static final double BLOCKER_CLOSED_POSITION = 0.5;
+    private static final double BLOCKER_OPEN_POSITION = 0.833;
+
+    private Follower follower;
+    private DcMotor intake;
+    private DcMotor transfer;
+    private DcMotorEx launcherOne;
+    private DcMotorEx launcherTwo;
+    private Servo blocker;
+
+    private final ElapsedTime autoTimer = new ElapsedTime();
+    private String lastResult = "none";
 
     @Override
     public void runOpMode() {
-        leftFront = hardwareMap.get(DcMotor.class, "left_front");
-        leftBack = hardwareMap.get(DcMotor.class, "left_back");
-        rightFront = hardwareMap.get(DcMotor.class, "right_front");
-        rightBack = hardwareMap.get(DcMotor.class, "right_back");
+        List<Step> steps = route();
+        for (int i = 0; i < steps.size(); i++) {
+            if (steps.get(i).to == null) {
+                throw new IllegalStateException("Step " + (i + 1) + " \"" + steps.get(i).name + "\" has no .to(...)");
+            }
+        }
 
-        leftFront.setDirection(DcMotorSimple.Direction.FORWARD);
-        leftBack.setDirection(DcMotorSimple.Direction.FORWARD);
-        rightFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        rightBack.setDirection(DcMotorSimple.Direction.REVERSE);
+        follower = Constants.createFollower(hardwareMap);
+        follower.setPose(START);
 
-        setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        setPower(0.0);
+        intake = initRoller(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
+        transfer = initRoller(TRANSFER, TRANSFER_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
+        launcherOne = initLauncher(LAUNCHER, LAUNCHER_ONE_DIRECTION);
+        launcherTwo = initLauncher(LAUNCHER_TWO, LAUNCHER_TWO_DIRECTION);
+        blocker = hardwareMap.get(Servo.class, SERVO_THREE);
 
         while (opModeInInit()) {
-            if (gamepad1.x) {
-                isRed = false;
-            } else if (gamepad1.b) {
-                isRed = true;
-            }
-
+            follower.localizer.update();
             telemetry.addLine("Simple Park Auto");
-            telemetry.addData("Alliance", isRed ? "RED" : "BLUE");
-            telemetry.addLine("Press X for BLUE, B for RED.");
-            telemetry.addData("Path", "fwd %.0f in, turn %.0f deg, park %.0f in",
-                    FORWARD_INCHES, isRed ? -TURN_DEGREES : TURN_DEGREES, PARK_INCHES);
+            telemetry.addData("Start", formatPose(START));
+            telemetry.addData("Pose now", formatPose(follower.pose()));
+            for (int i = 0; i < steps.size(); i++) {
+                telemetry.addData("Step " + (i + 1), steps.get(i).summary());
+            }
             telemetry.update();
         }
 
@@ -84,118 +108,282 @@ public class SimpleParkAuto extends LinearOpMode {
             return;
         }
 
+        autoTimer.reset();
+        blocker.setPosition(BLOCKER_CLOSED_POSITION);
+
         try {
-            runPark();
+            for (int i = 0; i < steps.size(); i++) {
+                if (!runStep(i + 1, steps.size(), steps.get(i))) {
+                    break;
+                }
+            }
         } finally {
-            setPower(0.0);
-            setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            stopEverything();
         }
 
         telemetry.addData("Status", "Finished");
-        telemetry.addData("Last leg", legResult);
+        telemetry.addData("Last result", lastResult);
+        telemetry.addData("Final pose", formatPose(follower.pose()));
+        telemetry.addData("Time used", "%.1f s", autoTimer.seconds());
         telemetry.update();
     }
 
-    private void runPark() {
-        if (START_DELAY_SECONDS > 0) {
-            sleep((long) (START_DELAY_SECONDS * 1000));
+    private boolean runStep(int number, int total, Step step) {
+        String label = String.format("%d/%d %s", number, total, step.name);
+
+        if (!drive(label, step)) {
+            return false;
+        }
+        follower.hold(step.to);
+
+        if (step.shootSeconds > 0 && !shoot(label, step.shootSeconds)) {
+            return false;
+        }
+        if (step.intakeSeconds > 0 && !runIntake(label, step.intakeSeconds)) {
+            return false;
+        }
+        if (step.pauseSeconds > 0 && !holdFor(label, "pause", step.pauseSeconds)) {
+            return false;
         }
 
-        if (!drive("Driving forward", FORWARD_INCHES)) return;
-        pause();
-
-        double turn = isRed ? -TURN_DEGREES : TURN_DEGREES;
-        if (!turn("Turning toward the parking zone", turn)) return;
-        pause();
-
-        drive("Parking", PARK_INCHES);
+        lastResult = label + ": done";
+        return true;
     }
 
-    private boolean drive(String step, double inches) {
-        int counts = (int) Math.round(inches * COUNTS_PER_INCH);
-        return move(step, counts, counts, DRIVE_SPEED, legTimeoutSeconds(inches, DRIVE_SPEED));
-    }
+    private boolean drive(String label, Step step) {
+        Pose start = step.from != null ? step.from : follower.pose();
 
-    /** Positive degrees turns left (counter-clockwise). */
-    private boolean turn(String step, double degrees) {
-        double arcInches = Math.PI * TRACK_WIDTH_INCHES * (degrees / 360.0);
-        int counts = (int) Math.round(arcInches * COUNTS_PER_INCH);
-        return move(step, -counts, counts, TURN_SPEED, legTimeoutSeconds(arcInches, TURN_SPEED));
-    }
+        if (step.controls.isEmpty() && start.distance(step.to) < MIN_PATH_INCHES) {
+            follower.hold(step.to);
+            follower.update();
+            return canRun();
+        }
 
-    private boolean move(String step, int leftCounts, int rightCounts, double speed,
-                         double timeoutSeconds) {
-        if (!opModeIsActive()) return false;
-        if (leftCounts == 0 && rightCounts == 0) return true;
+        Path path;
+        if (step.controls.isEmpty()) {
+            path = Paths.line(start, step.to);
+        } else {
+            Pose[] points = new Pose[step.controls.size() + 2];
+            points[0] = start;
+            for (int i = 0; i < step.controls.size(); i++) {
+                points[i + 1] = step.controls.get(i);
+            }
+            points[points.length - 1] = step.to;
+            path = Paths.curve(points);
+        }
+        follower.follow(path.linear(start, step.to));
 
-        leftFront.setTargetPosition(leftFront.getCurrentPosition() + leftCounts);
-        leftBack.setTargetPosition(leftBack.getCurrentPosition() + leftCounts);
-        rightFront.setTargetPosition(rightFront.getCurrentPosition() + rightCounts);
-        rightBack.setTargetPosition(rightBack.getCurrentPosition() + rightCounts);
+        if (step.intakeWhileDriving) {
+            intake.setPower(INTAKE_POWER);
+        }
 
-        setMode(DcMotor.RunMode.RUN_TO_POSITION);
-        legTimer.reset();
-        setPower(Math.abs(speed));
-
-        while (opModeIsActive() && motorsBusy() && legTimer.seconds() < timeoutSeconds) {
-            telemetry.addData("Alliance", isRed ? "RED" : "BLUE");
-            telemetry.addData("Step", step);
-            telemetry.addData("Target", "L %d  R %d",
-                    leftFront.getTargetPosition(), rightFront.getTargetPosition());
-            telemetry.addData("Actual", "L %d  R %d",
-                    leftFront.getCurrentPosition(), rightFront.getCurrentPosition());
+        ElapsedTime timer = new ElapsedTime();
+        boolean timedOut = false;
+        while (canRun() && (follower.following() || follower.isBusy())) {
+            if (timer.seconds() >= step.timeoutSeconds) {
+                timedOut = true;
+                break;
+            }
+            follower.update();
+            telemetry.addData("Step", label);
+            telemetry.addData("Phase", "driving");
+            telemetry.addData("Target", formatPose(step.to));
+            telemetry.addData("Pose now", formatPose(follower.pose()));
+            telemetry.addData("Remaining", "%.1f in", follower.remainingDistance());
+            telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), step.timeoutSeconds);
             telemetry.update();
         }
 
-        boolean arrived = opModeIsActive() && !motorsBusy();
-        if (!opModeIsActive()) {
-            legResult = step + ": stopped";
-        } else if (!arrived) {
-            legResult = String.format("%s: TIMEOUT at %.1f s", step, timeoutSeconds);
-        } else {
-            legResult = String.format("%s: arrived in %.1f s", step, legTimer.seconds());
+        if (step.intakeWhileDriving) {
+            intake.setPower(0.0);
         }
 
-        setPower(0.0);
-        setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-        return arrived;
-    }
-
-    private double legTimeoutSeconds(double inches, double speed) {
-        return LEG_TIMEOUT_BASE_SECONDS
-                + Math.abs(inches) * LEG_TIMEOUT_SECONDS_PER_INCH
-                * (LEG_TIMEOUT_REFERENCE_SPEED / Math.max(Math.abs(speed), 0.05));
-    }
-
-    private void pause() {
-        if (opModeIsActive()) {
-            sleep((long) (PAUSE_SECONDS * 1000));
+        if (timedOut) {
+            lastResult = String.format("%s: TIMEOUT after %.1f s", label, timer.seconds());
+            follower.hold(follower.pose());
+            follower.update();
+            return false;
         }
+        if (!canRun()) {
+            lastResult = label + ": stopped";
+            return false;
+        }
+        return true;
     }
 
-    private boolean motorsBusy() {
-        return leftFront.isBusy() || leftBack.isBusy()
-                || rightFront.isBusy() || rightBack.isBusy();
+    private boolean shoot(String label, double feedSeconds) {
+        setLauncherVelocity(SHOOT_VELOCITY);
+
+        ElapsedTime timer = new ElapsedTime();
+        boolean upToSpeed = false;
+        while (canRun() && timer.seconds() < SPINUP_TIMEOUT_SECONDS) {
+            follower.update();
+            upToSpeed = Math.abs(launcherOne.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE
+                    && Math.abs(launcherTwo.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE;
+            if (upToSpeed) {
+                break;
+            }
+            showShootTelemetry(label, "spinning up", timer.seconds(), SPINUP_TIMEOUT_SECONDS);
+        }
+        if (!canRun()) {
+            return false;
+        }
+
+        blocker.setPosition(BLOCKER_OPEN_POSITION);
+        transfer.setPower(FEED_TRANSFER_POWER);
+        intake.setPower(FEED_INTAKE_POWER);
+
+        timer.reset();
+        while (canRun() && timer.seconds() < feedSeconds) {
+            follower.update();
+            showShootTelemetry(label, upToSpeed ? "feeding" : "feeding (spin-up timed out)",
+                    timer.seconds(), feedSeconds);
+        }
+
+        transfer.setPower(0.0);
+        intake.setPower(0.0);
+        blocker.setPosition(BLOCKER_CLOSED_POSITION);
+        setLauncherVelocity(0.0);
+        return canRun();
     }
 
-    private void setPower(double power) {
-        leftFront.setPower(power);
-        leftBack.setPower(power);
-        rightFront.setPower(power);
-        rightBack.setPower(power);
+    private boolean runIntake(String label, double seconds) {
+        intake.setPower(INTAKE_POWER);
+        boolean ok = holdFor(label, "intaking", seconds);
+        intake.setPower(0.0);
+        return ok;
     }
 
-    private void setMode(DcMotor.RunMode mode) {
-        leftFront.setMode(mode);
-        leftBack.setMode(mode);
-        rightFront.setMode(mode);
-        rightBack.setMode(mode);
+    private boolean holdFor(String label, String phase, double seconds) {
+        ElapsedTime timer = new ElapsedTime();
+        while (canRun() && timer.seconds() < seconds) {
+            follower.update();
+            telemetry.addData("Step", label);
+            telemetry.addData("Phase", phase);
+            telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), seconds);
+            telemetry.addData("Pose now", formatPose(follower.pose()));
+            telemetry.update();
+        }
+        return canRun();
     }
 
-    private void setZeroPowerBehavior(DcMotor.ZeroPowerBehavior behavior) {
-        leftFront.setZeroPowerBehavior(behavior);
-        leftBack.setZeroPowerBehavior(behavior);
-        rightFront.setZeroPowerBehavior(behavior);
-        rightBack.setZeroPowerBehavior(behavior);
+    private void showShootTelemetry(String label, String phase, double time, double limit) {
+        telemetry.addData("Step", label);
+        telemetry.addData("Phase", phase);
+        telemetry.addData("Launcher", "target %.0f  L1 %.0f  L2 %.0f",
+                SHOOT_VELOCITY, launcherOne.getVelocity(), launcherTwo.getVelocity());
+        telemetry.addData("Time", "%.1f / %.1f s", time, limit);
+        telemetry.update();
+    }
+
+    private boolean canRun() {
+        return opModeIsActive() && autoTimer.seconds() < AUTO_BUDGET_SECONDS;
+    }
+
+    private void stopEverything() {
+        follower.stop();
+        follower.update();
+        intake.setPower(0.0);
+        transfer.setPower(0.0);
+        setLauncherVelocity(0.0);
+    }
+
+    private void setLauncherVelocity(double velocity) {
+        launcherOne.setVelocity(velocity);
+        launcherTwo.setVelocity(velocity);
+    }
+
+    private DcMotor initRoller(String name, DcMotorSimple.Direction direction,
+                               DcMotor.ZeroPowerBehavior zeroPowerBehavior) {
+        DcMotor motor = hardwareMap.get(DcMotor.class, name);
+        motor.setDirection(direction);
+        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        motor.setZeroPowerBehavior(zeroPowerBehavior);
+        motor.setPower(0.0);
+        return motor;
+    }
+
+    private DcMotorEx initLauncher(String name, DcMotorSimple.Direction direction) {
+        DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
+        motor.setDirection(direction);
+        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        return motor;
+    }
+
+    private static String formatPose(Pose pose) {
+        return String.format("x %.1f  y %.1f  h %.0f", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
+    }
+
+    private static Step step(String name) {
+        return new Step(name);
+    }
+
+    private static final class Step {
+        final String name;
+        Pose from;
+        Pose to;
+        final List<Pose> controls = new ArrayList<>();
+        double pauseSeconds = 0.0;
+        double shootSeconds = 0.0;
+        double intakeSeconds = 0.0;
+        boolean intakeWhileDriving = false;
+        double timeoutSeconds = DEFAULT_TIMEOUT_SECONDS;
+
+        Step(String name) {
+            this.name = name;
+        }
+
+        Step from(Pose pose) {
+            from = pose;
+            return this;
+        }
+
+        Step to(Pose pose) {
+            to = pose;
+            return this;
+        }
+
+        Step control(Pose... poses) {
+            controls.addAll(Arrays.asList(poses));
+            return this;
+        }
+
+        Step pause(double seconds) {
+            pauseSeconds = seconds;
+            return this;
+        }
+
+        Step shoot(double feedSeconds) {
+            shootSeconds = feedSeconds;
+            return this;
+        }
+
+        Step intake(double seconds) {
+            intakeSeconds = seconds;
+            return this;
+        }
+
+        Step intakeWhileDriving() {
+            intakeWhileDriving = true;
+            return this;
+        }
+
+        Step timeout(double seconds) {
+            timeoutSeconds = seconds;
+            return this;
+        }
+
+        String summary() {
+            StringBuilder text = new StringBuilder(name);
+            text.append(" -> ").append(formatPose(to));
+            if (!controls.isEmpty()) text.append("  cp ").append(controls.size());
+            if (intakeWhileDriving) text.append("  intake-drive");
+            if (shootSeconds > 0) text.append(String.format("  shoot %.1fs", shootSeconds));
+            if (intakeSeconds > 0) text.append(String.format("  intake %.1fs", intakeSeconds));
+            if (pauseSeconds > 0) text.append(String.format("  pause %.1fs", pauseSeconds));
+            return text.toString();
+        }
     }
 }

@@ -22,6 +22,11 @@ public class FieldPoints {
     public static final Pose FLOWER_3_END= new Pose(0.0,0.0,Math.toRadians(180.0));
     public static final Pose FLOWER_4_START = new Pose(96.0, 108.0, Math.toRadians(90.0));
     public static final Pose FLOWER_4_END = new Pose(0.0,0.0,Math.toRadians(90.0));
+    public static final Pose ANGLE_1 = new Pose(0.0,0.0,Math.toRadians(90.0));
+    public static final Pose ANGLE_2 = new Pose(0.0,0.0,Math.toRadians(90.0));
+    public static final Pose ANGLE_3 = new Pose(0.0,0.0,Math.toRadians(90.0));
+    public static final Pose ANGLE_4 = new Pose(0.0,0.0,Math.toRadians(90.0));
+
 
     public static final Pose PARK_POSE = new Pose(60.0, 84.0, Math.toRadians(0.0));
 
