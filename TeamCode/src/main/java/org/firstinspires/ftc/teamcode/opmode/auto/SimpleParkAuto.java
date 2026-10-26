@@ -49,6 +49,7 @@ public class SimpleParkAuto extends LinearOpMode {
     private static final double DEFAULT_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
     private static final double AUTO_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
     private static final double MIN_PATH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
+    private static final double HEADING_TOLERANCE_DEGREES = 2.0;
 
     private static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
@@ -154,9 +155,7 @@ public class SimpleParkAuto extends LinearOpMode {
         Pose start = step.from != null ? step.from : follower.pose();
 
         if (step.controls.isEmpty() && start.distance(step.to) < MIN_PATH_INCHES) {
-            follower.hold(step.to);
-            follower.update();
-            return canRun();
+            return turnInPlace(label, step);
         }
 
         Path path;
@@ -209,6 +208,48 @@ public class SimpleParkAuto extends LinearOpMode {
             return false;
         }
         return true;
+    }
+
+    private boolean turnInPlace(String label, Step step) {
+        follower.hold(step.to);
+        if (step.intakeWhileDriving) {
+            intake.setPower(INTAKE_POWER);
+        }
+
+        ElapsedTime timer = new ElapsedTime();
+        boolean timedOut = false;
+        while (canRun() && headingErrorDegrees(step.to) > HEADING_TOLERANCE_DEGREES) {
+            if (timer.seconds() >= step.timeoutSeconds) {
+                timedOut = true;
+                break;
+            }
+            follower.update();
+            telemetry.addData("Step", label);
+            telemetry.addData("Phase", "turning");
+            telemetry.addData("Heading error", "%.1f deg", headingErrorDegrees(step.to));
+            telemetry.addData("Pose now", formatPose(follower.pose()));
+            telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), step.timeoutSeconds);
+            telemetry.update();
+        }
+
+        if (step.intakeWhileDriving) {
+            intake.setPower(0.0);
+        }
+
+        if (timedOut) {
+            lastResult = String.format("%s: TURN TIMEOUT after %.1f s", label, timer.seconds());
+            return false;
+        }
+        if (!canRun()) {
+            lastResult = label + ": stopped";
+            return false;
+        }
+        return true;
+    }
+
+    private double headingErrorDegrees(Pose target) {
+        double error = target.heading() - follower.pose().heading();
+        return Math.abs(Math.toDegrees(Math.atan2(Math.sin(error), Math.cos(error))));
     }
 
     private boolean shoot(String label, double feedSeconds) {
