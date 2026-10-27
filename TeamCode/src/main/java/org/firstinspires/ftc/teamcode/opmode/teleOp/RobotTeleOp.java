@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -25,6 +26,10 @@ public class RobotTeleOp extends OpMode {
 //    public static final String LAUNCHER_SERVO_NAME = "launcher_servo";
     private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
     private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
+    private static final String FLOWER_INTAKE ="flower_intake";
+    private static final String OUTTAKE_BLOCKER ="outtake_blocker";
+
+
 
     private static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
@@ -39,6 +44,7 @@ public class RobotTeleOp extends OpMode {
     private static final double TRIGGER_RELEASE_THRESHOLD = 0.3;
 
     public static final double INTAKE_POWER = 1.0;
+    private static final double TELEOP_INTAKE_POWER = 0.8;
     private static final double INTAKE_REVERSE_POWER = -1.0;
     public static final double TRANSFER_POWER = 1.0;
 
@@ -49,14 +55,25 @@ public class RobotTeleOp extends OpMode {
     public static final double FEED_SECONDS = 1.0;
     public static final boolean KEEP_OUTTAKE_SPINNING = false;
 
+    private static final double OUTTAKE_MIN_VELOCITY = 0.0;
+    private static final double OUTTAKE_MAX_VELOCITY = 6000.0;
+    private static final double OUTTAKE_SMALL_STEP = 100.0;
+    private static final double OUTTAKE_BIG_STEP = 500.0;
+
+    private static final double SERVO_RANGE_DEGREES = 270.0;
+    private static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
+    private static final int FLOWER_START_INDEX = 0;
+    private static final double BLOCKER_CLOSED_POSITION = 0.5;
+    private static final double BLOCKER_TURN_DEGREES = 50.0;
+    private static final double BLOCKER_OPEN_POSITION =
+            Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
+
     private static final double OUTTAKE_ENCODER_STALL_TICKS = 50.0;
     private static final double OUTTAKE_ENCODER_WARN_SECONDS = 2.0;
 
     public static final double AIM_START_POSITION = 0.50;
     public static final double AIM_MIN_POSITION = 0.00;
     public static final double AIM_MAX_POSITION = 1.00;
-    private static final double AIM_STEP_COARSE = 0.05;
-    private static final double AIM_STEP_FINE = 0.01;
 
     private static final boolean SLOW_MODE_DEFAULT = false;
     private static final boolean FIELD_CENTRIC_DEFAULT = false;
@@ -80,8 +97,6 @@ public class RobotTeleOp extends OpMode {
 
     private static final boolean PRIMARY_PINPOINT_IS_LEFT = true;
 
-    private enum FireState { IDLE, SPIN_UP, FEED, FINISH }
-
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
@@ -92,22 +107,22 @@ public class RobotTeleOp extends OpMode {
     private GoBildaPinpointDriver pinpointLeft;
     private GoBildaPinpointDriver pinpointRight;
     private GoBildaPinpointDriver pinpointPrimary;
+    private Servo outtakeBlocker;
+    private Servo flowerIntake;
 
-    private FireState fireState = FireState.IDLE;
-    private String spinUpResult = "n/a";
-    private String fireWaitingFor = "nothing";
     private String headingResetResult = "not reset yet";
 
     private boolean intakeOn = false;
     private boolean transferLatched = false;
-    private boolean outtakeHolding = false;
+    private boolean outtakeOn = false;
+    private double outtakeVelocity = OUTTAKE_VELOCITY;
+    private int flowerIndex = FLOWER_START_INDEX;
+    private boolean blockerOpen = false;
     private boolean slowMode = SLOW_MODE_DEFAULT;
     private boolean fieldCentric = FIELD_CENTRIC_DEFAULT;
 
     private boolean leftTriggerLatched = false;
-    private boolean rightTriggerLatched = false;
 
-    private double aimPosition = AIM_START_POSITION;
     private double headingOffsetRadians = 0.0;
     private double commandedOuttakeVelocity = 0.0;
 
@@ -115,8 +130,6 @@ public class RobotTeleOp extends OpMode {
     private boolean primaryHeadingValid = false;
     private boolean fieldCentricActive = false;
 
-    private final ElapsedTime spinUpTimer = new ElapsedTime();
-    private final ElapsedTime feedTimer = new ElapsedTime();
     private final ElapsedTime outtakeEncoderTimer = new ElapsedTime();
 
     @Override
@@ -131,6 +144,8 @@ public class RobotTeleOp extends OpMode {
         pinpointLeft = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
         pinpointRight = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
         pinpointPrimary = PRIMARY_PINPOINT_IS_LEFT ? pinpointLeft : pinpointRight;
+        flowerIntake = hardwareMap.get(Servo.class, FLOWER_INTAKE);
+        outtakeBlocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
         leftBack.setDirection(LEFT_SIDE_DIRECTION);
@@ -164,7 +179,7 @@ public class RobotTeleOp extends OpMode {
                 PINPOINT_RIGHT_X_DIRECTION, PINPOINT_RIGHT_Y_DIRECTION);
 
         telemetry.addData("Status", "Initialized - nothing is commanded until START");
-        telemetry.addData("Aim moves to", "%.3f at START", aimPosition);
+        telemetry.addData("Servos move at START", "flower pos %d, blocker closed", FLOWER_START_INDEX + 1);
     }
 
     @Override
@@ -182,18 +197,16 @@ public class RobotTeleOp extends OpMode {
 
     @Override
     public void start() {
-        fireState = FireState.IDLE;
         intakeOn = false;
         transferLatched = false;
-        outtakeHolding = false;
+        outtakeOn = false;
+        outtakeVelocity = OUTTAKE_VELOCITY;
+        flowerIndex = FLOWER_START_INDEX;
+        blockerOpen = false;
         leftTriggerLatched = false;
-        rightTriggerLatched = false;
-        spinUpResult = "n/a";
-        fireWaitingFor = "nothing";
         headingResetResult = "not reset yet";
         outtakeEncoderWarning = false;
-        outtakeEncoderTimer.reset();
-        aimPosition = Range.clip(AIM_START_POSITION, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        updateServos();
     }
 
     @Override
@@ -201,20 +214,20 @@ public class RobotTeleOp extends OpMode {
         boolean yPressed = gamepad1.yWasPressed();
         boolean backPressed = gamepad1.backWasPressed();
         boolean slowTogglePressed = gamepad1.leftStickButtonWasPressed();
-        boolean cancelPressed = gamepad2.xWasPressed();
+        boolean outtakeTogglePressed = gamepad2.yWasPressed();
         boolean transferOnPressed = gamepad2.aWasPressed();
         boolean transferOffPressed = gamepad2.bWasPressed();
-        boolean aimUpPressed = gamepad2.dpadUpWasPressed();
-        boolean aimDownPressed = gamepad2.dpadDownWasPressed();
-        boolean aimRightPressed = gamepad2.dpadRightWasPressed();
-        boolean aimLeftPressed = gamepad2.dpadLeftWasPressed();
+        boolean blockerTogglePressed = gamepad2.xWasPressed();
+        boolean flowerUpPressed = gamepad2.rightBumperWasPressed();
+        boolean flowerDownPressed = gamepad2.leftBumperWasPressed();
+        boolean velocityUpPressed = gamepad2.dpadUpWasPressed();
+        boolean velocityDownPressed = gamepad2.dpadDownWasPressed();
+        boolean velocityBigUpPressed = gamepad2.dpadRightWasPressed();
+        boolean velocityBigDownPressed = gamepad2.dpadLeftWasPressed();
 
         double leftTriggerValue = gamepad1.left_trigger;
-        double rightTriggerValue = gamepad1.right_trigger;
         boolean intakeTogglePressed = triggerRisingEdge(leftTriggerValue, leftTriggerLatched);
         leftTriggerLatched = updateTriggerLatch(leftTriggerValue, leftTriggerLatched);
-        boolean firePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
-        rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
 
         updatePinpoint(pinpointLeft);
         updatePinpoint(pinpointRight);
@@ -244,30 +257,31 @@ public class RobotTeleOp extends OpMode {
         if (transferOffPressed) {
             transferLatched = false;
         }
-        if (cancelPressed) {
-            if (fireState != FireState.IDLE) {
-                spinUpResult = "CANCELLED";
-            }
-            fireState = FireState.IDLE;
-            transferLatched = false;
-            outtakeHolding = false;
+        if (outtakeTogglePressed) {
+            outtakeOn = !outtakeOn;
         }
-
-        if (aimUpPressed) {
-            aimPosition = Range.clip(aimPosition + AIM_STEP_COARSE, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        if (blockerTogglePressed) {
+            blockerOpen = !blockerOpen;
         }
-        if (aimDownPressed) {
-            aimPosition = Range.clip(aimPosition - AIM_STEP_COARSE, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        if (flowerUpPressed) {
+            flowerIndex = Math.min(flowerIndex + 1, FLOWER_POSITIONS.length - 1);
         }
-        if (aimRightPressed) {
-            aimPosition = Range.clip(aimPosition + AIM_STEP_FINE, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        if (flowerDownPressed) {
+            flowerIndex = Math.max(flowerIndex - 1, 0);
         }
-        if (aimLeftPressed) {
-            aimPosition = Range.clip(aimPosition - AIM_STEP_FINE, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        if (velocityUpPressed) {
+            outtakeVelocity += OUTTAKE_SMALL_STEP;
         }
-
-        double measuredVelocity = outtake.getVelocity();
-        advanceFireSequence(firePressed && !cancelPressed, measuredVelocity);
+        if (velocityDownPressed) {
+            outtakeVelocity -= OUTTAKE_SMALL_STEP;
+        }
+        if (velocityBigUpPressed) {
+            outtakeVelocity += OUTTAKE_BIG_STEP;
+        }
+        if (velocityBigDownPressed) {
+            outtakeVelocity -= OUTTAKE_BIG_STEP;
+        }
+        outtakeVelocity = Range.clip(outtakeVelocity, OUTTAKE_MIN_VELOCITY, OUTTAKE_MAX_VELOCITY);
 
         driveMecanum();
 
@@ -275,29 +289,24 @@ public class RobotTeleOp extends OpMode {
         if (gamepad1.left_bumper) {
             intakePower = INTAKE_REVERSE_POWER;
         } else {
-            intakePower = intakeOn ? INTAKE_POWER : 0.0;
+            intakePower = intakeOn ? TELEOP_INTAKE_POWER : 0.0;
         }
         intake.setPower(intakePower);
 
         double transferPower;
-        if (fireState == FireState.SPIN_UP) {
-            transferPower = 0.0;
-        } else if (fireState == FireState.FEED) {
-            transferPower = FEED_POWER;
-        } else if (gamepad1.left_bumper) {
+        if (gamepad1.left_bumper) {
             transferPower = -TRANSFER_POWER;
         } else {
             transferPower = (intakeOn || transferLatched) ? TRANSFER_POWER : 0.0;
         }
         transfer.setPower(transferPower);
 
-        if (fireState == FireState.SPIN_UP || fireState == FireState.FEED) {
-            commandedOuttakeVelocity = OUTTAKE_VELOCITY;
-        } else {
-            commandedOuttakeVelocity = outtakeHolding ? OUTTAKE_VELOCITY : 0.0;
-        }
+        commandedOuttakeVelocity = outtakeOn ? outtakeVelocity : 0.0;
         outtake.setVelocity(commandedOuttakeVelocity);
 
+        updateServos();
+
+        double measuredVelocity = outtake.getVelocity();
         updateOuttakeEncoderWatchdog(measuredVelocity);
         addTelemetry(measuredVelocity, intakePower, transferPower, primaryStatus);
     }
@@ -314,47 +323,9 @@ public class RobotTeleOp extends OpMode {
         outtake.setPower(0.0);
     }
 
-    private void advanceFireSequence(boolean fireRequested, double measuredVelocity) {
-        switch (fireState) {
-            case IDLE:
-                fireWaitingFor = "right trigger";
-                if (fireRequested) {
-                    spinUpTimer.reset();
-                    spinUpResult = "spinning up";
-                    fireState = FireState.SPIN_UP;
-                }
-                break;
-
-            case SPIN_UP:
-                fireWaitingFor = String.format("velocity within %.0f tps (%.1fs before timeout)",
-                        OUTTAKE_TOLERANCE,
-                        Math.max(0.0, SPINUP_TIMEOUT_SECONDS - spinUpTimer.seconds()));
-                if (Math.abs(measuredVelocity - OUTTAKE_VELOCITY) <= OUTTAKE_TOLERANCE) {
-                    spinUpResult = String.format("AT SPEED after %.2fs", spinUpTimer.seconds());
-                    feedTimer.reset();
-                    fireState = FireState.FEED;
-                } else if (spinUpTimer.seconds() >= SPINUP_TIMEOUT_SECONDS) {
-                    spinUpResult = String.format("TIMEOUT after %.2fs at %.0f tps",
-                            spinUpTimer.seconds(), measuredVelocity);
-                    feedTimer.reset();
-                    fireState = FireState.FEED;
-                }
-                break;
-
-            case FEED:
-                fireWaitingFor = String.format("feed to finish (%.2fs left)",
-                        Math.max(0.0, FEED_SECONDS - feedTimer.seconds()));
-                if (feedTimer.seconds() >= FEED_SECONDS) {
-                    fireState = FireState.FINISH;
-                }
-                break;
-
-            case FINISH:
-                outtakeHolding = KEEP_OUTTAKE_SPINNING;
-                fireWaitingFor = "nothing";
-                fireState = FireState.IDLE;
-                break;
-        }
+    private void updateServos() {
+        flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
+        outtakeBlocker.setPosition(blockerOpen ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
     }
 
     private void driveMecanum() {
@@ -412,31 +383,20 @@ public class RobotTeleOp extends OpMode {
 
     private void addTelemetry(double measuredVelocity, double intakePower, double transferPower,
                               GoBildaPinpointDriver.DeviceStatus primaryStatus) {
-        telemetry.addData("Fire state", fireState);
-        telemetry.addData("Fire waiting for", fireWaitingFor);
-        telemetry.addData("Spin-up result", spinUpResult);
-        telemetry.addData("Outtake vel", "measured %.0f / target %.0f  tol %.0f",
-                measuredVelocity, commandedOuttakeVelocity, OUTTAKE_TOLERANCE);
-        telemetry.addData("Outtake hold", outtakeHolding ? "ON" : "OFF");
+        telemetry.addData("Outtake", "%s  target %.0f  measured %.0f",
+                outtakeOn ? "ON" : "OFF", outtakeVelocity, measuredVelocity);
         if (outtakeEncoderWarning) {
             telemetry.addLine("WARNING outtake commanded but measured velocity is ~0 - check the outtake encoder cable");
         }
-
+        telemetry.addData("Blocker", "%s  pos %.2f",
+                blockerOpen ? "OPEN" : "CLOSED", outtakeBlocker.getPosition());
+        telemetry.addData("Flower", "position %d / %d  pos %.2f",
+                flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Intake", "%s  power %.2f%s",
                 intakeOn ? "ON" : "OFF", intakePower,
                 gamepad1.left_bumper ? "  REVERSE held" : "");
-        String transferOwner;
-        if (fireState == FireState.SPIN_UP) {
-            transferOwner = "  held off by fire sequence until at speed";
-        } else if (fireState == FireState.FEED) {
-            transferOwner = "  driven by fire sequence";
-        } else {
-            transferOwner = "";
-        }
-        telemetry.addData("Transfer", "latch %s  power %.2f%s",
-                transferLatched ? "ON" : "OFF", transferPower, transferOwner);
-        telemetry.addData("Aim position", "%.3f   range %.2f..%.2f",
-                aimPosition, AIM_MIN_POSITION, AIM_MAX_POSITION);
+        telemetry.addData("Transfer", "latch %s  power %.2f",
+                transferLatched ? "ON" : "OFF", transferPower);
 
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
         if (fieldCentric && !primaryHeadingValid) {
