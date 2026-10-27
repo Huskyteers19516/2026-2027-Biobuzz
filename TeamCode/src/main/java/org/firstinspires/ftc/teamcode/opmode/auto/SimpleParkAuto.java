@@ -1,9 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER_TWO;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_THREE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
 
 import com.pedropathing.api.Paths;
@@ -19,6 +18,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
+import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
@@ -51,26 +51,24 @@ public class SimpleParkAuto extends LinearOpMode {
     private static final double MIN_PATH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
     private static final double HEADING_TOLERANCE_DEGREES = 2.0;
 
-    private static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction LAUNCHER_ONE_DIRECTION = DcMotorSimple.Direction.REVERSE;
-    private static final DcMotorSimple.Direction LAUNCHER_TWO_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    private static final DcMotorSimple.Direction INTAKE_DIRECTION = RobotTeleOp.INTAKE_DIRECTION;
+    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = RobotTeleOp.TRANSFER_DIRECTION;
+    private static final DcMotorSimple.Direction OUTTAKE_DIRECTION = RobotTeleOp.OUTTAKE_DIRECTION;
 
-    private static final double SHOOT_VELOCITY = 1000.0;
-    private static final double SHOOT_TOLERANCE = 100.0;
-    private static final double SPINUP_TIMEOUT_SECONDS = 2.5;
-    private static final double FEED_TRANSFER_POWER = 1.0;
+    private static final double SHOOT_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
+    private static final double SHOOT_TOLERANCE = RobotTeleOp.OUTTAKE_TOLERANCE;
+    private static final double SPINUP_TIMEOUT_SECONDS = RobotTeleOp.SPINUP_TIMEOUT_SECONDS;
+    private static final double FEED_TRANSFER_POWER = RobotTeleOp.FEED_POWER;
     private static final double FEED_INTAKE_POWER = 1.0;
-    private static final double INTAKE_POWER = 1.0;
+    private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
 
-    private static final double BLOCKER_CLOSED_POSITION = 0.5;
-    private static final double BLOCKER_OPEN_POSITION = 0.833;
+    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
+    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
     private Follower follower;
     private DcMotor intake;
     private DcMotor transfer;
-    private DcMotorEx launcherOne;
-    private DcMotorEx launcherTwo;
+    private DcMotorEx outtake;
     private Servo blocker;
 
     private final ElapsedTime autoTimer = new ElapsedTime();
@@ -90,9 +88,8 @@ public class SimpleParkAuto extends LinearOpMode {
 
         intake = initRoller(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
         transfer = initRoller(TRANSFER, TRANSFER_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        launcherOne = initLauncher(LAUNCHER, LAUNCHER_ONE_DIRECTION);
-        launcherTwo = initLauncher(LAUNCHER_TWO, LAUNCHER_TWO_DIRECTION);
-        blocker = hardwareMap.get(Servo.class, SERVO_THREE);
+        outtake = initOuttake(OUTTAKE, OUTTAKE_DIRECTION);
+        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
 
         while (opModeInInit()) {
             follower.localizer.update();
@@ -253,14 +250,13 @@ public class SimpleParkAuto extends LinearOpMode {
     }
 
     private boolean shoot(String label, double feedSeconds) {
-        setLauncherVelocity(SHOOT_VELOCITY);
+        setOuttakeVelocity(SHOOT_VELOCITY);
 
         ElapsedTime timer = new ElapsedTime();
         boolean upToSpeed = false;
         while (canRun() && timer.seconds() < SPINUP_TIMEOUT_SECONDS) {
             follower.update();
-            upToSpeed = Math.abs(launcherOne.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE
-                    && Math.abs(launcherTwo.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE;
+            upToSpeed = Math.abs(outtake.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE;
             if (upToSpeed) {
                 break;
             }
@@ -284,7 +280,7 @@ public class SimpleParkAuto extends LinearOpMode {
         transfer.setPower(0.0);
         intake.setPower(0.0);
         blocker.setPosition(BLOCKER_CLOSED_POSITION);
-        setLauncherVelocity(0.0);
+        setOuttakeVelocity(0.0);
         return canRun();
     }
 
@@ -311,8 +307,8 @@ public class SimpleParkAuto extends LinearOpMode {
     private void showShootTelemetry(String label, String phase, double time, double limit) {
         telemetry.addData("Step", label);
         telemetry.addData("Phase", phase);
-        telemetry.addData("Launcher", "target %.0f  L1 %.0f  L2 %.0f",
-                SHOOT_VELOCITY, launcherOne.getVelocity(), launcherTwo.getVelocity());
+        telemetry.addData("Outtake", "target %.0f  measured %.0f",
+                SHOOT_VELOCITY, outtake.getVelocity());
         telemetry.addData("Time", "%.1f / %.1f s", time, limit);
         telemetry.update();
     }
@@ -326,12 +322,11 @@ public class SimpleParkAuto extends LinearOpMode {
         follower.update();
         intake.setPower(0.0);
         transfer.setPower(0.0);
-        setLauncherVelocity(0.0);
+        setOuttakeVelocity(0.0);
     }
 
-    private void setLauncherVelocity(double velocity) {
-        launcherOne.setVelocity(velocity);
-        launcherTwo.setVelocity(velocity);
+    private void setOuttakeVelocity(double velocity) {
+        outtake.setVelocity(velocity);
     }
 
     private DcMotor initRoller(String name, DcMotorSimple.Direction direction,
@@ -344,7 +339,7 @@ public class SimpleParkAuto extends LinearOpMode {
         return motor;
     }
 
-    private DcMotorEx initLauncher(String name, DcMotorSimple.Direction direction) {
+    private DcMotorEx initOuttake(String name, DcMotorSimple.Direction direction) {
         DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
         motor.setDirection(direction);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);

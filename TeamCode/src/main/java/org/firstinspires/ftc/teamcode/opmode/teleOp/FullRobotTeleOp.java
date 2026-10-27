@@ -4,11 +4,10 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_LEFT_MO
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_RIGHT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FLOWER_INTAKE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.LAUNCHER_TWO;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_ONE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.SERVO_THREE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
 
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -24,28 +23,22 @@ public class FullRobotTeleOp extends OpMode {
 
     private static final DcMotorSimple.Direction LEFT_DRIVE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_DRIVE_DIRECTION = DcMotorSimple.Direction.REVERSE;
-    private static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction LAUNCHER_ONE_DIRECTION = DcMotorSimple.Direction.REVERSE;
-    private static final DcMotorSimple.Direction LAUNCHER_TWO_DIRECTION = DcMotorSimple.Direction.FORWARD;
-
-    private static final String FLOWER_RAMP_NAME = SERVO_ONE;
-    private static final String BLOCKER_NAME = SERVO_THREE;
+    private static final DcMotorSimple.Direction INTAKE_DIRECTION = RobotTeleOp.INTAKE_DIRECTION;
+    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = RobotTeleOp.TRANSFER_DIRECTION;
+    private static final DcMotorSimple.Direction OUTTAKE_DIRECTION = RobotTeleOp.OUTTAKE_DIRECTION;
 
     private static final double STICK_DEADZONE = 0.05;
     private static final double TRIGGER_DEADZONE = 0.05;
 
-    private static final double OUTTAKE_START_VELOCITY = 1000.0;
+    private static final double OUTTAKE_START_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
     private static final double OUTTAKE_MIN_VELOCITY = 0.0;
     private static final double OUTTAKE_MAX_VELOCITY = 6000.0;
     private static final double OUTTAKE_SMALL_STEP = 100.0;
     private static final double OUTTAKE_BIG_STEP = 500.0;
 
-    private static final double SERVO_RANGE_DEGREES = 270.0;
-    private static final double FLOWER_RAMP_HOME_POSITION = 0.5;
-    private static final double FLOWER_RAMP_SWING_DEGREES = 60.0;
-    private static final double BLOCKER_HOME_POSITION = 0.5;
-    private static final double BLOCKER_SWING_DEGREES = 90.0;
+    private static final double[] FLOWER_POSITIONS = RobotTeleOp.FLOWER_POSITIONS;
+    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
+    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
@@ -53,15 +46,14 @@ public class FullRobotTeleOp extends OpMode {
     private DcMotor rightBack;
     private DcMotor intake;
     private DcMotor transfer;
-    private DcMotorEx launcherOne;
-    private DcMotorEx launcherTwo;
-    private Servo flowerRamp;
+    private DcMotorEx outtake;
+    private Servo flowerIntake;
     private Servo blocker;
 
     private double outtakeVelocity = OUTTAKE_START_VELOCITY;
     private boolean outtakeOn = false;
-    private boolean rampSwung = false;
-    private boolean blockerSwung = false;
+    private int flowerIndex = RobotTeleOp.FLOWER_START_INDEX;
+    private boolean blockerOpen = false;
 
     private boolean lastA = false;
     private boolean lastX = false;
@@ -81,11 +73,10 @@ public class FullRobotTeleOp extends OpMode {
         intake = initRollerMotor(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
         transfer = initRollerMotor(TRANSFER, TRANSFER_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
 
-        launcherOne = initLauncher(LAUNCHER, LAUNCHER_ONE_DIRECTION);
-        launcherTwo = initLauncher(LAUNCHER_TWO, LAUNCHER_TWO_DIRECTION);
+        outtake = initOuttake(OUTTAKE, OUTTAKE_DIRECTION);
 
-        flowerRamp = hardwareMap.get(Servo.class, FLOWER_RAMP_NAME);
-        blocker = hardwareMap.get(Servo.class, BLOCKER_NAME);
+        flowerIntake = hardwareMap.get(Servo.class, FLOWER_INTAKE);
+        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
 
         telemetry.addData("Status", "Initialized - servos move at START");
         showControls();
@@ -114,8 +105,7 @@ public class FullRobotTeleOp extends OpMode {
         rightBack.setPower(0);
         intake.setPower(0);
         transfer.setPower(0);
-        launcherOne.setVelocity(0);
-        launcherTwo.setVelocity(0);
+        outtake.setVelocity(0);
     }
 
     private void drive() {
@@ -162,10 +152,10 @@ public class FullRobotTeleOp extends OpMode {
             outtakeOn = !outtakeOn;
         }
         if (x && !lastX) {
-            rampSwung = !rampSwung;
+            flowerIndex = (flowerIndex + 1) % FLOWER_POSITIONS.length;
         }
         if (b && !lastB) {
-            blockerSwung = !blockerSwung;
+            blockerOpen = !blockerOpen;
         }
         if (up && !lastUp) {
             outtakeVelocity += OUTTAKE_SMALL_STEP;
@@ -191,27 +181,21 @@ public class FullRobotTeleOp extends OpMode {
     }
 
     private void runOuttake() {
-        double velocity = outtakeOn ? outtakeVelocity : 0.0;
-        launcherOne.setVelocity(velocity);
-        launcherTwo.setVelocity(velocity);
+        outtake.setVelocity(outtakeOn ? outtakeVelocity : 0.0);
     }
 
     private void updateServos() {
-        flowerRamp.setPosition(rampSwung
-                ? swungPosition(FLOWER_RAMP_HOME_POSITION, FLOWER_RAMP_SWING_DEGREES)
-                : FLOWER_RAMP_HOME_POSITION);
-        blocker.setPosition(blockerSwung
-                ? swungPosition(BLOCKER_HOME_POSITION, BLOCKER_SWING_DEGREES)
-                : BLOCKER_HOME_POSITION);
+        flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
+        blocker.setPosition(blockerOpen ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
     }
 
     private void showTelemetry() {
-        telemetry.addData("Outtake", "%s  target %.0f  L1 %.0f  L2 %.0f ticks/s",
-                outtakeOn ? "ON" : "OFF", outtakeVelocity,
-                launcherOne.getVelocity(), launcherTwo.getVelocity());
+        telemetry.addData("Outtake", "%s  target %.0f  measured %.0f ticks/s",
+                outtakeOn ? "ON" : "OFF", outtakeVelocity, outtake.getVelocity());
         telemetry.addData("Intake / Transfer", "%.2f / %.2f", intake.getPower(), transfer.getPower());
-        telemetry.addData("Flower ramp", "%s  pos %.2f", rampSwung ? "SWUNG" : "HOME", flowerRamp.getPosition());
-        telemetry.addData("Blocker", "%s  pos %.2f", blockerSwung ? "SWUNG" : "HOME", blocker.getPosition());
+        telemetry.addData("Flower", "position %d / %d  pos %.2f",
+                flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
+        telemetry.addData("Blocker", "%s  pos %.2f", blockerOpen ? "OPEN" : "CLOSED", blocker.getPosition());
         showControls();
     }
 
@@ -219,7 +203,7 @@ public class FullRobotTeleOp extends OpMode {
         telemetry.addLine("Sticks: mecanum drive");
         telemetry.addLine("LT intake  RT transfer  LB/RB reverse them");
         telemetry.addLine("A outtake on/off  dpad up/down +-100  right/left +-500");
-        telemetry.addLine("X flower ramp  B blocker");
+        telemetry.addLine("X flower next position  B blocker");
     }
 
     private DcMotor initDriveMotor(String name, DcMotorSimple.Direction direction) {
@@ -241,17 +225,13 @@ public class FullRobotTeleOp extends OpMode {
         return motor;
     }
 
-    private DcMotorEx initLauncher(String name, DcMotorSimple.Direction direction) {
+    private DcMotorEx initOuttake(String name, DcMotorSimple.Direction direction) {
         DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
         motor.setDirection(direction);
         motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         return motor;
-    }
-
-    private static double swungPosition(double home, double degrees) {
-        return Range.clip(home + degrees / SERVO_RANGE_DEGREES, 0.0, 1.0);
     }
 
     private static double deadzone(double value, double zone) {

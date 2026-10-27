@@ -25,13 +25,12 @@ public class Constants {
     public static final String BACK_LEFT_MOTOR_NAME = "left_back";
     public static final String FRONT_RIGHT_MOTOR_NAME = "right_front";
     public static final String BACK_RIGHT_MOTOR_NAME = "right_back";
-    public static final String LAUNCHER = "launcher";
-    public static final String LAUNCHER_TWO = "launcher2";
-    public static final String TRANSFER = "transfer";
     public static final String INTAKE = "intake";
-    public static final String SERVO_ONE ="intake_servo";
-    public static final String SERVO_TWO ="outtake_servo";
-    public static final String SERVO_THREE ="blocker";
+    public static final String TRANSFER = "transfer";
+    public static final String OUTTAKE = "outtake";
+    public static final String FLOWER_INTAKE = "flower_intake";
+    public static final String OUTTAKE_BLOCKER = "outtake_blocker";
+    public static final String WEBCAM = "Webcam 1";
 
     private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;

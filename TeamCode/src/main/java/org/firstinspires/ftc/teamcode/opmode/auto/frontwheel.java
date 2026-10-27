@@ -5,6 +5,8 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
+
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @TeleOp(name = "Frank Front Wheels TeleOp", group = "Test")
 public class frontwheel extends LinearOpMode {
 
@@ -29,8 +31,8 @@ public class frontwheel extends LinearOpMode {
     @Override
     public void runOpMode() throws InterruptedException {
         try {
-            frontLeft = hardwareMap.get(DcMotor.class, "left_front");
-            frontRight = hardwareMap.get(DcMotor.class, "right_front");
+            frontLeft = hardwareMap.get(DcMotor.class, Constants.FRONT_LEFT_MOTOR_NAME);
+            frontRight = hardwareMap.get(DcMotor.class, Constants.FRONT_RIGHT_MOTOR_NAME);
 
             // Rear motors are optional in the hardware map.
             // When present, keep them unpowered and select FLOAT.

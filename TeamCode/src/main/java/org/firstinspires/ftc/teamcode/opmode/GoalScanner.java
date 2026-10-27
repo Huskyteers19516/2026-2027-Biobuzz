@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 import org.firstinspires.ftc.vision.VisionPortal;
 import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
@@ -19,7 +20,6 @@ import java.util.Map;
 
 public class GoalScanner {
 
-    public static final String WEBCAM_NAME = "Webcam 1";
     public static final int CAMERA_WIDTH = 640;
     public static final int CAMERA_HEIGHT = 480;
     public static final float DECIMATION = 2.0f;
@@ -112,7 +112,7 @@ public class GoalScanner {
             aprilTag.setDecimation(DECIMATION);
 
             visionPortal = new VisionPortal.Builder()
-                    .setCamera(hardwareMap.get(WebcamName.class, WEBCAM_NAME))
+                    .setCamera(hardwareMap.get(WebcamName.class, Constants.WEBCAM))
                     .setCameraResolution(new Size(CAMERA_WIDTH, CAMERA_HEIGHT))
                     .enableLiveView(LIVE_VIEW)
                     .setAutoStopLiveView(true)
@@ -121,7 +121,7 @@ public class GoalScanner {
         } catch (Exception e) {
             aprilTag = null;
             visionPortal = null;
-            fault = "camera '" + WEBCAM_NAME + "' unavailable: " + e.getClass().getSimpleName();
+            fault = "camera '" + Constants.WEBCAM + "' unavailable: " + e.getClass().getSimpleName();
         }
     }
 

@@ -90,9 +90,9 @@ public class MatchAuto extends LinearOpMode {
         scanner = new GoalScanner(hardwareMap);
 
 
-        intake = hardwareMap.get(DcMotor.class, RobotTeleOp.INTAKE_NAME);
-        transfer = hardwareMap.get(DcMotor.class, RobotTeleOp.TRANSFER_NAME);
-        outtake = hardwareMap.get(DcMotorEx.class, RobotTeleOp.OUTTAKE_NAME);
+        intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
+        transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
+        outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
 
         intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
         transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);

@@ -12,24 +12,10 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name = "Robot TeleOp", group = "Testing")
 public class RobotTeleOp extends OpMode {
-
-    private static final String LEFT_FRONT_NAME = "left_front";
-    private static final String LEFT_BACK_NAME = "left_back";
-    private static final String RIGHT_FRONT_NAME = "right_front";
-    private static final String RIGHT_BACK_NAME = "right_back";
-    public static final String INTAKE_NAME = "intake";
-    public static final String TRANSFER_NAME = "transfer";
-    public static final String OUTTAKE_NAME = "outtake";
-//    public static final String LAUNCHER_SERVO_NAME = "launcher_servo";
-    private static final String PINPOINT_LEFT_NAME = "pinpoint_left";
-    private static final String PINPOINT_RIGHT_NAME = "pinpoint_right";
-    private static final String FLOWER_INTAKE ="flower_intake";
-    private static final String OUTTAKE_BLOCKER ="outtake_blocker";
-
-
 
     private static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     private static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
@@ -61,11 +47,11 @@ public class RobotTeleOp extends OpMode {
     private static final double OUTTAKE_BIG_STEP = 500.0;
 
     private static final double SERVO_RANGE_DEGREES = 270.0;
-    private static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
-    private static final int FLOWER_START_INDEX = 0;
-    private static final double BLOCKER_CLOSED_POSITION = 0.5;
+    public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
+    public static final int FLOWER_START_INDEX = 0;
+    public static final double BLOCKER_CLOSED_POSITION = 0.5;
     private static final double BLOCKER_TURN_DEGREES = 50.0;
-    private static final double BLOCKER_OPEN_POSITION =
+    public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
     private static final double OUTTAKE_ENCODER_STALL_TICKS = 50.0;
@@ -122,6 +108,7 @@ public class RobotTeleOp extends OpMode {
     private boolean fieldCentric = FIELD_CENTRIC_DEFAULT;
 
     private boolean leftTriggerLatched = false;
+    private boolean rightTriggerLatched = false;
 
     private double headingOffsetRadians = 0.0;
     private double commandedOuttakeVelocity = 0.0;
@@ -134,18 +121,18 @@ public class RobotTeleOp extends OpMode {
 
     @Override
     public void init() {
-        leftFront = hardwareMap.get(DcMotor.class, LEFT_FRONT_NAME);
-        leftBack = hardwareMap.get(DcMotor.class, LEFT_BACK_NAME);
-        rightFront = hardwareMap.get(DcMotor.class, RIGHT_FRONT_NAME);
-        rightBack = hardwareMap.get(DcMotor.class, RIGHT_BACK_NAME);
-        intake = hardwareMap.get(DcMotor.class, INTAKE_NAME);
-        transfer = hardwareMap.get(DcMotor.class, TRANSFER_NAME);
-        outtake = hardwareMap.get(DcMotorEx.class, OUTTAKE_NAME);
-        pinpointLeft = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_LEFT_NAME);
-        pinpointRight = hardwareMap.tryGet(GoBildaPinpointDriver.class, PINPOINT_RIGHT_NAME);
+        leftFront = hardwareMap.get(DcMotor.class, Constants.FRONT_LEFT_MOTOR_NAME);
+        leftBack = hardwareMap.get(DcMotor.class, Constants.BACK_LEFT_MOTOR_NAME);
+        rightFront = hardwareMap.get(DcMotor.class, Constants.FRONT_RIGHT_MOTOR_NAME);
+        rightBack = hardwareMap.get(DcMotor.class, Constants.BACK_RIGHT_MOTOR_NAME);
+        intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
+        transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
+        outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
+        pinpointLeft = hardwareMap.tryGet(GoBildaPinpointDriver.class, Constants.PINPOINT_NAME);
+        pinpointRight = hardwareMap.tryGet(GoBildaPinpointDriver.class, Constants.SECONDARY_PINPOINT_NAME);
         pinpointPrimary = PRIMARY_PINPOINT_IS_LEFT ? pinpointLeft : pinpointRight;
-        flowerIntake = hardwareMap.get(Servo.class, FLOWER_INTAKE);
-        outtakeBlocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
+        flowerIntake = hardwareMap.get(Servo.class, Constants.FLOWER_INTAKE);
+        outtakeBlocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
         leftBack.setDirection(LEFT_SIDE_DIRECTION);
@@ -188,7 +175,7 @@ public class RobotTeleOp extends OpMode {
         updatePinpoint(pinpointRight);
 
         telemetry.addData("Status", "Init - waiting for START");
-        telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+        telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? Constants.PINPOINT_NAME : Constants.SECONDARY_PINPOINT_NAME);
         telemetry.addData("Pinpoint L", pinpointEncoderSummary(pinpointLeft));
         telemetry.addData("Pinpoint R", pinpointEncoderSummary(pinpointRight));
         telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
@@ -204,6 +191,7 @@ public class RobotTeleOp extends OpMode {
         flowerIndex = FLOWER_START_INDEX;
         blockerOpen = false;
         leftTriggerLatched = false;
+        rightTriggerLatched = false;
         headingResetResult = "not reset yet";
         outtakeEncoderWarning = false;
         updateServos();
@@ -217,7 +205,6 @@ public class RobotTeleOp extends OpMode {
         boolean outtakeTogglePressed = gamepad2.yWasPressed();
         boolean transferOnPressed = gamepad2.aWasPressed();
         boolean transferOffPressed = gamepad2.bWasPressed();
-        boolean blockerTogglePressed = gamepad2.xWasPressed();
         boolean flowerUpPressed = gamepad2.rightBumperWasPressed();
         boolean flowerDownPressed = gamepad2.leftBumperWasPressed();
         boolean velocityUpPressed = gamepad2.dpadUpWasPressed();
@@ -228,6 +215,9 @@ public class RobotTeleOp extends OpMode {
         double leftTriggerValue = gamepad1.left_trigger;
         boolean intakeTogglePressed = triggerRisingEdge(leftTriggerValue, leftTriggerLatched);
         leftTriggerLatched = updateTriggerLatch(leftTriggerValue, leftTriggerLatched);
+        double rightTriggerValue = gamepad1.right_trigger;
+        boolean blockerTogglePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
+        rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
 
         updatePinpoint(pinpointLeft);
         updatePinpoint(pinpointRight);
@@ -407,7 +397,7 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Heading reset", headingResetResult);
 
         telemetry.addData("Primary Pinpoint",
-                PRIMARY_PINPOINT_IS_LEFT ? PINPOINT_LEFT_NAME : PINPOINT_RIGHT_NAME);
+                PRIMARY_PINPOINT_IS_LEFT ? Constants.PINPOINT_NAME : Constants.SECONDARY_PINPOINT_NAME);
         telemetry.addData("Primary status", primaryStatus == null ? "NOT CONFIGURED" : primaryStatus);
         if (pinpointPrimary != null) {
             telemetry.addData("Primary freq", "%.1f Hz", pinpointPrimary.getFrequency());
