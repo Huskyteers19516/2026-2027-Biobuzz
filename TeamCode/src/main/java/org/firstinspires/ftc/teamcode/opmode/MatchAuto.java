@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -26,6 +27,8 @@ public class MatchAuto extends LinearOpMode {
     private static final double FEED_SECONDS = RobotTeleOp.FEED_SECONDS;
     private static final boolean KEEP_OUTTAKE_SPINNING = RobotTeleOp.KEEP_OUTTAKE_SPINNING;
     private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
+    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
+    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
     private static final double SHOT_GAP_SECONDS = 0.4;
     private static final double MAX_ACTION_SECONDS = 8.0;
@@ -61,6 +64,7 @@ public class MatchAuto extends LinearOpMode {
     private DcMotor intake;
     private DcMotor transfer;
     private DcMotorEx outtake;
+    private Servo blocker;
     private DcMotor LeftFront;
     private DcMotor Leftback;
     private DcMotor riightfront;
@@ -93,6 +97,7 @@ public class MatchAuto extends LinearOpMode {
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
         transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
         outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
+        blocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
 
         intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
         transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
@@ -165,6 +170,7 @@ public class MatchAuto extends LinearOpMode {
 
             try {
                 follower.setPose(FieldPoints.START_POSE);
+                blocker.setPosition(BLOCKER_CLOSED_POSITION);
                 tick();
                 runtime.reset();
 
@@ -331,6 +337,7 @@ public class MatchAuto extends LinearOpMode {
                 break;
             }
 
+            blocker.setPosition(BLOCKER_OPEN_POSITION);
             transfer.setPower(FEED_POWER);
 
             ElapsedTime feedTimer = new ElapsedTime();
@@ -345,6 +352,7 @@ public class MatchAuto extends LinearOpMode {
             }
 
             transfer.setPower(0.0);
+            blocker.setPosition(BLOCKER_CLOSED_POSITION);
 
             if (shot < shots - 1 && canKeepRunning()) {
                 holdFor(SHOT_GAP_SECONDS);
@@ -352,6 +360,7 @@ public class MatchAuto extends LinearOpMode {
         }
 
         transfer.setPower(0.0);
+        blocker.setPosition(BLOCKER_CLOSED_POSITION);
 
         if (!KEEP_OUTTAKE_SPINNING) {
             outtake.setVelocity(0.0);
@@ -638,6 +647,7 @@ public class MatchAuto extends LinearOpMode {
     private void stopAll() {
         intake.setPower(0.0);
         transfer.setPower(0.0);
+        blocker.setPosition(BLOCKER_CLOSED_POSITION);
         outtake.setVelocity(0.0);
         outtake.setPower(0.0);
         follower.stop();
