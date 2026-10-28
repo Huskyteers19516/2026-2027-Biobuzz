@@ -39,8 +39,12 @@ public class SimpleParkAuto extends LinearOpMode {
                 .shoot(1.5)
                 .pause(0.5));
 
-        steps.add(step("Park")
+        steps.add(step("Go to angle 1")
                 .from(FieldPoints.SHOOT_POSE_1)
+                .to(FieldPoints.ANGLE_1));
+
+        steps.add(step("Park")
+                .from(FieldPoints.ANGLE_1)
                 .to(FieldPoints.PARK_POSE));
 
         return steps;

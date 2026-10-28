@@ -15,10 +15,146 @@ import com.qualcomm.robotcore.util.Range;
 import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 @Autonomous(name = "Match Auto", group = "Auto")
 public class MatchAuto extends LinearOpMode {
+
+    private List<Step> redRoute() {
+        List<Step> steps = new ArrayList<>();
+
+        steps.add(step("Shoot preload at shooting point 1")
+                .from(FieldPoints.START_POSE)
+                .to(FieldPoints.SHOOT_POSE_1)
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1, FieldPoints.AIM_AT_SHOOT_POSE_1));
+
+        steps.add(step("Move to flower 1 start")
+                .from(FieldPoints.SHOOT_POSE_1)
+                .to(FieldPoints.FLOWER_1_START));
+        steps.add(step("Sweep flower 1")
+                .from(FieldPoints.FLOWER_1_START)
+                .to(FieldPoints.FLOWER_1_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 1 at shooting point 1")
+                .from(FieldPoints.FLOWER_1_END)
+                .to(FieldPoints.SHOOT_POSE_1)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_1));
+
+        steps.add(step("Move to flower 2 start")
+                .from(FieldPoints.SHOOT_POSE_1)
+                .to(FieldPoints.FLOWER_2_START));
+        steps.add(step("Sweep flower 2")
+                .from(FieldPoints.FLOWER_2_START)
+                .to(FieldPoints.FLOWER_2_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 2 at shooting point 2")
+                .from(FieldPoints.FLOWER_2_END)
+                .to(FieldPoints.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Move to flower 3 start")
+                .from(FieldPoints.SHOOT_POSE_2)
+                .to(FieldPoints.FLOWER_3_START));
+        steps.add(step("Sweep flower 3")
+                .from(FieldPoints.FLOWER_3_START)
+                .to(FieldPoints.FLOWER_3_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 3 at shooting point 2")
+                .from(FieldPoints.FLOWER_3_END)
+                .to(FieldPoints.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Move to flower 4 start")
+                .from(FieldPoints.SHOOT_POSE_2)
+                .to(FieldPoints.FLOWER_4_START));
+        steps.add(step("Sweep flower 4")
+                .from(FieldPoints.FLOWER_4_START)
+                .to(FieldPoints.FLOWER_4_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 4 at shooting point 2")
+                .from(FieldPoints.FLOWER_4_END)
+                .to(FieldPoints.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2, FieldPoints.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Park")
+                .from(FieldPoints.SHOOT_POSE_2)
+                .to(FieldPoints.PARK_POSE));
+
+        return steps;
+    }
+
+    private List<Step> blueRoute() {
+        List<Step> steps = new ArrayList<>();
+
+        steps.add(step("Shoot preload at shooting point 1")
+                .from(FieldPointsBlue.START_POSE)
+                .to(FieldPointsBlue.SHOOT_POSE_1)
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1, FieldPointsBlue.AIM_AT_SHOOT_POSE_1));
+
+        steps.add(step("Move to flower 1 start")
+                .from(FieldPointsBlue.SHOOT_POSE_1)
+                .to(FieldPointsBlue.FLOWER_1_START));
+        steps.add(step("Sweep flower 1")
+                .from(FieldPointsBlue.FLOWER_1_START)
+                .to(FieldPointsBlue.FLOWER_1_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 1 at shooting point 1")
+                .from(FieldPointsBlue.FLOWER_1_END)
+                .to(FieldPointsBlue.SHOOT_POSE_1)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_1));
+
+        steps.add(step("Move to flower 2 start")
+                .from(FieldPointsBlue.SHOOT_POSE_1)
+                .to(FieldPointsBlue.FLOWER_2_START));
+        steps.add(step("Sweep flower 2")
+                .from(FieldPointsBlue.FLOWER_2_START)
+                .to(FieldPointsBlue.FLOWER_2_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 2 at shooting point 2")
+                .from(FieldPointsBlue.FLOWER_2_END)
+                .to(FieldPointsBlue.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Move to flower 3 start")
+                .from(FieldPointsBlue.SHOOT_POSE_2)
+                .to(FieldPointsBlue.FLOWER_3_START));
+        steps.add(step("Sweep flower 3")
+                .from(FieldPointsBlue.FLOWER_3_START)
+                .to(FieldPointsBlue.FLOWER_3_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 3 at shooting point 2")
+                .from(FieldPointsBlue.FLOWER_3_END)
+                .to(FieldPointsBlue.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Move to flower 4 start")
+                .from(FieldPointsBlue.SHOOT_POSE_2)
+                .to(FieldPointsBlue.FLOWER_4_START));
+        steps.add(step("Sweep flower 4")
+                .from(FieldPointsBlue.FLOWER_4_START)
+                .to(FieldPointsBlue.FLOWER_4_END)
+                .intakeWhileDriving()
+                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(step("Shoot flower 4 at shooting point 2")
+                .from(FieldPointsBlue.FLOWER_4_END)
+                .to(FieldPointsBlue.SHOOT_POSE_2)
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+
+        steps.add(step("Park")
+                .from(FieldPointsBlue.SHOOT_POSE_2)
+                .to(FieldPointsBlue.PARK_POSE));
+
+        return steps;
+    }
 
     private static final double OUTTAKE_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
     private static final double OUTTAKE_TOLERANCE = RobotTeleOp.OUTTAKE_TOLERANCE;
@@ -33,13 +169,14 @@ public class MatchAuto extends LinearOpMode {
     private static final double SHOT_GAP_SECONDS = 0.4;
     private static final double MAX_ACTION_SECONDS = 8.0;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
+    private static final double TURN_TOLERANCE_DEGREES = 2.0;
 
     private static final double AUTONOMOUS_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
     private static final double MIN_PATH_LENGTH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
+    private static final double DEFAULT_PATH_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
 
     private static final double AIM_DEFAULT_POSITION = RobotTeleOp.AIM_START_POSITION;
 
-    private static final GoalScanner.Alliance ALLIANCE = FieldPoints.ALLIANCE;
     private static final boolean VISION_AIMING_ENABLED = FieldPoints.VISION_AIMING_ENABLED;
 
     private static final double RANGE_NEAR = FieldPoints.RANGE_NEAR_INCHES;
@@ -72,6 +209,8 @@ public class MatchAuto extends LinearOpMode {
 
     private final ElapsedTime runtime = new ElapsedTime();
 
+    private GoalScanner.Alliance alliance = FieldPoints.DEFAULT_ALLIANCE;
+
     private String lastPathResult = "none";
     private String lastShotResult = "none";
     private String stopReason = "mission complete";
@@ -90,6 +229,9 @@ public class MatchAuto extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        checkRoute("Red", redRoute());
+        checkRoute("Blue", blueRoute());
+
         follower = Constants.createFollower(hardwareMap);
         scanner = new GoalScanner(hardwareMap);
 
@@ -112,38 +254,52 @@ public class MatchAuto extends LinearOpMode {
         outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        follower.setPose(FieldPoints.START_POSE);
+        follower.setPose(startPose());
 
-        List<FieldPoints.Step> mission = FieldPoints.mission();
+        List<Step> mission = route();
 
         try {
             while (!isStarted() && !isStopRequested()) {
+                GoalScanner.Alliance picked = alliance;
+                if ((gamepad1.x && !gamepad1.start) || (gamepad2.x && !gamepad2.start)) {
+                    picked = GoalScanner.Alliance.BLUE;
+                }
+                if ((gamepad1.b && !gamepad1.start) || (gamepad2.b && !gamepad2.start)) {
+                    picked = GoalScanner.Alliance.RED;
+                }
+                if (picked != alliance) {
+                    alliance = picked;
+                    mission = route();
+                    follower.setPose(startPose());
+                }
+
                 follower.localizer.update();
                 scanner.update();
                 telemetry.addLine("Match Auto");
+                telemetry.addData("ALLIANCE", "%s   (X = BLUE, B = RED)", alliance);
+                telemetry.addData("Points file", pointsFile());
                 telemetry.addData("Steps", mission.size());
                 telemetry.addData("Budget", "%.1f s", AUTONOMOUS_BUDGET_SECONDS);
-                telemetry.addData("Start pose", formatPose(FieldPoints.START_POSE));
+                telemetry.addData("Start pose", formatPose(startPose()));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
                 telemetry.addData("Localizer", Constants.PINPOINT_NAME);
                 telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
 
                 telemetry.addLine();
-                telemetry.addData("ALLIANCE", ALLIANCE);
                 telemetry.addData("Vision aiming", VISION_AIMING_ENABLED ? "ENABLED" : "DISABLED (static aim only)");
-                telemetry.addData("Goal clusters", "%s / %s", ALLIANCE.firstCluster, ALLIANCE.secondCluster);
+                telemetry.addData("Goal clusters", "%s / %s", alliance.firstCluster, alliance.secondCluster);
                 telemetry.addData("Camera", scanner.cameraState());
                 if (!scanner.isAvailable()) {
                     telemetry.addLine("!! CAMERA NOT AVAILABLE - AUTO WILL USE THE STATIC AIM");
                     telemetry.addData("Camera fault", scanner.fault());
                 } else {
-                    telemetry.addData("Candidates", scanner.candidateSummary(ALLIANCE));
+                    telemetry.addData("Candidates", scanner.candidateSummary(alliance));
                     telemetry.addLine("Wait for Camera = STREAMING before pressing START.");
                 }
 
-                if (!FieldPoints.POINTS_CONFIRMED) {
-                    telemetry.addLine("!! FIELD POINTS NOT CONFIRMED - AUTO WILL NOT MOVE");
-                    telemetry.addLine("Measure the real coordinates in FieldPoints.java,");
+                if (!pointsConfirmed()) {
+                    telemetry.addLine("!! " + alliance + " FIELD POINTS NOT CONFIRMED - AUTO WILL NOT MOVE");
+                    telemetry.addLine("Measure the real coordinates in " + pointsFile() + ",");
                     telemetry.addLine("then set POINTS_CONFIRMED = true.");
                 }
 
@@ -151,12 +307,12 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.update();
             }
 
-            if (!FieldPoints.POINTS_CONFIRMED) {
+            if (!pointsConfirmed()) {
                 stopAll();
 
                 while (opModeIsActive()) {
-                    telemetry.addLine("!! FIELD POINTS NOT CONFIRMED - REFUSING TO DRIVE");
-                    telemetry.addLine("The poses in FieldPoints.java are placeholders.");
+                    telemetry.addLine("!! " + alliance + " FIELD POINTS NOT CONFIRMED - REFUSING TO DRIVE");
+                    telemetry.addLine("The poses in " + pointsFile() + " are placeholders.");
                     telemetry.addLine("Measure them, then set POINTS_CONFIRMED = true.");
                     telemetry.update();
                 }
@@ -169,7 +325,7 @@ public class MatchAuto extends LinearOpMode {
             }
 
             try {
-                follower.setPose(FieldPoints.START_POSE);
+                follower.setPose(startPose());
                 blocker.setPosition(BLOCKER_CLOSED_POSITION);
                 tick();
                 runtime.reset();
@@ -191,6 +347,7 @@ public class MatchAuto extends LinearOpMode {
             }
 
             telemetry.addData("Status", "Finished");
+            telemetry.addData("Alliance", alliance);
             telemetry.addData("Reason", stopReason);
             telemetry.addData("Runtime", "%.1f s", runtime.seconds());
             telemetry.addData("Final pose", formatPose(follower.pose()));
@@ -202,6 +359,35 @@ public class MatchAuto extends LinearOpMode {
             telemetry.update();
         } finally {
             scanner.close();
+        }
+    }
+
+    private boolean isBlue() {
+        return alliance == GoalScanner.Alliance.BLUE;
+    }
+
+    private List<Step> route() {
+        return isBlue() ? blueRoute() : redRoute();
+    }
+
+    private Pose startPose() {
+        return isBlue() ? FieldPointsBlue.START_POSE : FieldPoints.START_POSE;
+    }
+
+    private boolean pointsConfirmed() {
+        return isBlue() ? FieldPointsBlue.POINTS_CONFIRMED : FieldPoints.POINTS_CONFIRMED;
+    }
+
+    private String pointsFile() {
+        return isBlue() ? "FieldPointsBlue.java" : "FieldPoints.java";
+    }
+
+    private void checkRoute(String name, List<Step> steps) {
+        for (int i = 0; i < steps.size(); i++) {
+            if (steps.get(i).to == null) {
+                throw new IllegalStateException(name + " route step " + (i + 1)
+                        + " \"" + steps.get(i).name + "\" has no .to(...)");
+            }
         }
     }
 
@@ -218,48 +404,14 @@ public class MatchAuto extends LinearOpMode {
         return opModeIsActive() && !budgetExhausted();
     }
 
-    private void runStep(int index, int total, FieldPoints.Step step) {
-        Pose startPose = follower.pose();
-        double legLength = startPose.distance(step.target);
-        boolean timedOut = false;
-        ElapsedTime pathTimer = new ElapsedTime();
-
-        if (legLength < MIN_PATH_LENGTH_INCHES) {
-            follower.hold(step.target);
-            tick();
-            lastPathResult = String.format("step %d already on target (%.2f in)", index + 1, legLength);
-        } else {
-            Path path = Paths.line(startPose, step.target).linear(startPose, step.target);
-            follower.follow(path);
-
-            if (step.intakeWhileDriving) {
-                intake.setPower(INTAKE_POWER);
-            }
-
-            while (canKeepRunning() && (follower.following() || follower.isBusy())) {
-                if (pathTimer.seconds() >= step.pathTimeoutSeconds) {
-                    timedOut = true;
-                    break;
-                }
-                tick();
-                addStepTelemetry(index, total, step, "following");
-                telemetry.addData("Remaining on path", "%.1f in", follower.remainingDistance());
-                telemetry.addData("Path time", "%.1f / %.1f s", pathTimer.seconds(), step.pathTimeoutSeconds);
-                telemetry.update();
-            }
-
-            intake.setPower(0.0);
-
-            lastPathResult = timedOut
-                    ? String.format("step %d TIMEOUT after %.1f s", index + 1, pathTimer.seconds())
-                    : String.format("step %d arrived in %.1f s", index + 1, pathTimer.seconds());
-        }
+    private void runStep(int index, int total, Step step) {
+        boolean timedOut = drive(index, total, step);
 
         if (!opModeIsActive()) {
             return;
         }
 
-        follower.hold(timedOut ? follower.pose() : step.target);
+        follower.hold(timedOut ? follower.pose() : step.to);
         tick();
 
         addStepTelemetry(index, total, step, timedOut ? "TIMED OUT" : "arrived");
@@ -272,21 +424,101 @@ public class MatchAuto extends LinearOpMode {
             return;
         }
 
-        switch (step.action) {
-            case SHOOT:
-                holdFor(SETTLE_SECONDS_BEFORE_SHOOT);
-                runShoot(index, total, step);
-                break;
-            case INTAKE:
-                runIntake(index, total, step);
-                break;
-            case NONE:
-            default:
-                break;
+        if (step.shots > 0) {
+            holdFor(SETTLE_SECONDS_BEFORE_SHOOT);
+            runShoot(index, total, step);
+        }
+        if (step.intakeSeconds > 0 && canKeepRunning()) {
+            runIntake(index, total, step);
+        }
+        if (step.pauseSeconds > 0 && canKeepRunning()) {
+            holdFor(step.pauseSeconds);
         }
     }
 
-    private void runShoot(int index, int total, FieldPoints.Step step) {
+    private boolean drive(int index, int total, Step step) {
+        Pose start = step.from != null ? step.from : follower.pose();
+
+        if (step.controls.isEmpty() && start.distance(step.to) < MIN_PATH_LENGTH_INCHES) {
+            return turnInPlace(index, total, step);
+        }
+
+        Path path;
+        if (step.controls.isEmpty()) {
+            path = Paths.line(start, step.to);
+        } else {
+            Pose[] points = new Pose[step.controls.size() + 2];
+            points[0] = start;
+            for (int i = 0; i < step.controls.size(); i++) {
+                points[i + 1] = step.controls.get(i);
+            }
+            points[points.length - 1] = step.to;
+            path = Paths.curve(points);
+        }
+        follower.follow(path.linear(start, step.to));
+
+        if (step.intakeWhileDriving) {
+            intake.setPower(INTAKE_POWER);
+        }
+
+        ElapsedTime pathTimer = new ElapsedTime();
+        boolean timedOut = false;
+
+        while (canKeepRunning() && (follower.following() || follower.isBusy())) {
+            if (pathTimer.seconds() >= step.timeoutSeconds) {
+                timedOut = true;
+                break;
+            }
+            tick();
+            addStepTelemetry(index, total, step, "following");
+            telemetry.addData("Remaining on path", "%.1f in", follower.remainingDistance());
+            telemetry.addData("Path time", "%.1f / %.1f s", pathTimer.seconds(), step.timeoutSeconds);
+            telemetry.update();
+        }
+
+        intake.setPower(0.0);
+
+        lastPathResult = timedOut
+                ? String.format("step %d TIMEOUT after %.1f s", index + 1, pathTimer.seconds())
+                : String.format("step %d arrived in %.1f s", index + 1, pathTimer.seconds());
+        return timedOut;
+    }
+
+    private boolean turnInPlace(int index, int total, Step step) {
+        follower.hold(step.to);
+
+        if (step.intakeWhileDriving) {
+            intake.setPower(INTAKE_POWER);
+        }
+
+        ElapsedTime turnTimer = new ElapsedTime();
+        boolean timedOut = false;
+
+        while (canKeepRunning() && headingErrorDegrees(step.to) > TURN_TOLERANCE_DEGREES) {
+            if (turnTimer.seconds() >= step.timeoutSeconds) {
+                timedOut = true;
+                break;
+            }
+            tick();
+            addStepTelemetry(index, total, step, "turning in place");
+            telemetry.addData("Heading error", "%.1f deg", headingErrorDegrees(step.to));
+            telemetry.addData("Turn time", "%.1f / %.1f s", turnTimer.seconds(), step.timeoutSeconds);
+            telemetry.update();
+        }
+
+        intake.setPower(0.0);
+
+        lastPathResult = timedOut
+                ? String.format("step %d TURN TIMEOUT after %.1f s", index + 1, turnTimer.seconds())
+                : String.format("step %d turned in place in %.1f s", index + 1, turnTimer.seconds());
+        return timedOut;
+    }
+
+    private double headingErrorDegrees(Pose target) {
+        return Math.abs(Math.toDegrees(normalizeRadians(target.heading() - follower.pose().heading())));
+    }
+
+    private void runShoot(int index, int total, Step step) {
         int shots = step.shots;
 
         if (shots <= 0) {
@@ -368,7 +600,7 @@ public class MatchAuto extends LinearOpMode {
         }
     }
 
-    private void scanAimAndCommit(int index, int total, FieldPoints.Step step, int shot, int shots) {
+    private void scanAimAndCommit(int index, int total, Step step, int shot, int shots) {
         ElapsedTime aimTimer = new ElapsedTime();
 
         aimCluster = "none";
@@ -394,7 +626,7 @@ public class MatchAuto extends LinearOpMode {
 
         if (target == null) {
             commitFallback(step, String.format("no usable %s / %s cluster (>= %d%%, age <= %d ms) in %.2f s",
-                    ALLIANCE.firstCluster, ALLIANCE.secondCluster,
+                    alliance.firstCluster, alliance.secondCluster,
                     GoalScanner.MIN_PERCENT_CLUSTER_FOUND, GoalScanner.SIGHTING_FRESHNESS_MS, scanLimit));
             return;
         }
@@ -459,7 +691,7 @@ public class MatchAuto extends LinearOpMode {
                 aimCluster, aimPercent, aimRange, aimValueUsed, aimBearingBefore, aimBearingAfter);
     }
 
-    private void commitFallback(FieldPoints.Step step, String reason) {
+    private void commitFallback(Step step, String reason) {
         aimUsedFallback = true;
         aimValueUsed = step.aim;
         aimNote = "FALLBACK static aim " + String.format("%.3f", step.aim) + " - " + reason;
@@ -469,36 +701,36 @@ public class MatchAuto extends LinearOpMode {
         return Math.max(0.0, PER_SHOT_TIMEOUT_SECONDS - aimTimer.seconds());
     }
 
-    private GoalScanner.Sighting scanFor(double seconds, int index, int total, FieldPoints.Step step,
+    private GoalScanner.Sighting scanFor(double seconds, int index, int total, Step step,
                                          int shot, int shots) {
         ElapsedTime scanTimer = new ElapsedTime();
         GoalScanner.Sighting found = null;
 
         while (canKeepRunning() && scanTimer.seconds() < seconds) {
             tick();
-            found = scanner.bestTargetFor(ALLIANCE);
+            found = scanner.bestTargetFor(alliance);
             if (found != null) {
                 break;
             }
             addStepTelemetry(index, total, step, "scanning");
             telemetry.addData("Shot", "%d / %d", shot + 1, shots);
             telemetry.addData("Camera", scanner.cameraState());
-            telemetry.addData("Looking for", "%s or %s", ALLIANCE.firstCluster, ALLIANCE.secondCluster);
-            telemetry.addData("Candidates", scanner.candidateSummary(ALLIANCE));
+            telemetry.addData("Looking for", "%s or %s", alliance.firstCluster, alliance.secondCluster);
+            telemetry.addData("Candidates", scanner.candidateSummary(alliance));
             telemetry.addData("Scan time", "%.2f / %.2f s", scanTimer.seconds(), seconds);
             telemetry.update();
         }
 
         if (found == null && canKeepRunning()) {
             tick();
-            found = scanner.bestTargetFor(ALLIANCE);
+            found = scanner.bestTargetFor(alliance);
         }
 
         return found;
     }
 
     private GoalScanner.Sighting confirmFor(double seconds, String shortName, long sinceNanoTime,
-                                            int index, int total, FieldPoints.Step step,
+                                            int index, int total, Step step,
                                             int shot, int shots) {
         ElapsedTime confirmTimer = new ElapsedTime();
         GoalScanner.Sighting found = null;
@@ -512,7 +744,7 @@ public class MatchAuto extends LinearOpMode {
             addStepTelemetry(index, total, step, "confirming");
             telemetry.addData("Shot", "%d / %d", shot + 1, shots);
             telemetry.addData("Confirming", shortName);
-            telemetry.addData("Candidates", scanner.candidateSummary(ALLIANCE));
+            telemetry.addData("Candidates", scanner.candidateSummary(alliance));
             telemetry.addData("Confirm time", "%.2f / %.2f s", confirmTimer.seconds(), seconds);
             telemetry.update();
         }
@@ -522,7 +754,7 @@ public class MatchAuto extends LinearOpMode {
 
     private boolean turnToReduceBearing(double bearingDegrees, String clusterName, int clusterPercent,
                                         ElapsedTime aimTimer, int index, int total,
-                                        FieldPoints.Step step, int shot, int shots) {
+                                        Step step, int shot, int shots) {
         double correctionDegrees = Range.clip(bearingDegrees,
                 -AIM_BEARING_MAX_CORRECTION_DEGREES, AIM_BEARING_MAX_CORRECTION_DEGREES);
 
@@ -586,9 +818,9 @@ public class MatchAuto extends LinearOpMode {
         return value;
     }
 
-    private void runIntake(int index, int total, FieldPoints.Step step) {
-        double seconds = Math.min(step.seconds, MAX_ACTION_SECONDS);
-        boolean clamped = step.seconds > MAX_ACTION_SECONDS;
+    private void runIntake(int index, int total, Step step) {
+        double seconds = Math.min(step.intakeSeconds, MAX_ACTION_SECONDS);
+        boolean clamped = step.intakeSeconds > MAX_ACTION_SECONDS;
 
         intake.setPower(INTAKE_POWER);
 
@@ -599,7 +831,7 @@ public class MatchAuto extends LinearOpMode {
             telemetry.addData("Intake time", "%.1f / %.1f s", intakeTimer.seconds(), seconds);
             if (clamped) {
                 telemetry.addData("WARNING", "intake clamped from %.1f to %.1f s",
-                        step.seconds, MAX_ACTION_SECONDS);
+                        step.intakeSeconds, MAX_ACTION_SECONDS);
             }
             telemetry.update();
         }
@@ -628,19 +860,19 @@ public class MatchAuto extends LinearOpMode {
         telemetry.addData("Aim note", aimNote);
     }
 
-    private void addStepTelemetry(int index, int total, FieldPoints.Step step, String phase) {
+    private void addStepTelemetry(int index, int total, Step step, String phase) {
         Pose pose = follower.pose();
         telemetry.addData("Step", "%d / %d  %s", index + 1, total, step.name);
         telemetry.addData("Phase", phase);
-        telemetry.addData("Action", step.action);
-        telemetry.addData("Alliance", ALLIANCE);
-        telemetry.addData("Target", formatPose(step.target));
+        telemetry.addData("Plan", step.actions());
+        telemetry.addData("Alliance", alliance);
+        telemetry.addData("Target", formatPose(step.to));
         telemetry.addData("Current", formatPose(pose));
-        telemetry.addData("Distance to target", "%.1f in", step.target.distance(pose));
+        telemetry.addData("Distance to target", "%.1f in", step.to.distance(pose));
         telemetry.addData("Runtime", "%.1f / %.1f s", runtime.seconds(), AUTONOMOUS_BUDGET_SECONDS);
     }
 
-    private String formatPose(Pose pose) {
+    private static String formatPose(Pose pose) {
         return String.format("x %.1f  y %.1f  h %.1f deg", pose.x(), pose.y(), Math.toDegrees(pose.heading()));
     }
 
@@ -652,5 +884,77 @@ public class MatchAuto extends LinearOpMode {
         outtake.setPower(0.0);
         follower.stop();
         follower.update();
+    }
+
+    private static Step step(String name) {
+        return new Step(name);
+    }
+
+    private static final class Step {
+        final String name;
+        Pose from;
+        Pose to;
+        final List<Pose> controls = new ArrayList<>();
+        int shots = 0;
+        double aim = AIM_DEFAULT_POSITION;
+        double intakeSeconds = 0.0;
+        boolean intakeWhileDriving = false;
+        double pauseSeconds = 0.0;
+        double timeoutSeconds = DEFAULT_PATH_TIMEOUT_SECONDS;
+
+        Step(String name) {
+            this.name = name;
+        }
+
+        Step from(Pose pose) {
+            from = pose;
+            return this;
+        }
+
+        Step to(Pose pose) {
+            to = pose;
+            return this;
+        }
+
+        Step control(Pose... poses) {
+            controls.addAll(Arrays.asList(poses));
+            return this;
+        }
+
+        Step shoot(int count, double staticAim) {
+            shots = count;
+            aim = staticAim;
+            return this;
+        }
+
+        Step intake(double seconds) {
+            intakeSeconds = seconds;
+            return this;
+        }
+
+        Step intakeWhileDriving() {
+            intakeWhileDriving = true;
+            return this;
+        }
+
+        Step pause(double seconds) {
+            pauseSeconds = seconds;
+            return this;
+        }
+
+        Step timeout(double seconds) {
+            timeoutSeconds = seconds;
+            return this;
+        }
+
+        String actions() {
+            StringBuilder text = new StringBuilder();
+            if (!controls.isEmpty()) text.append("  cp ").append(controls.size());
+            if (intakeWhileDriving) text.append("  intake-drive");
+            if (shots > 0) text.append(String.format("  shoot %d", shots));
+            if (intakeSeconds > 0) text.append(String.format("  intake %.1fs", intakeSeconds));
+            if (pauseSeconds > 0) text.append(String.format("  pause %.1fs", pauseSeconds));
+            return text.length() == 0 ? "drive" : text.toString().trim();
+        }
     }
 }
