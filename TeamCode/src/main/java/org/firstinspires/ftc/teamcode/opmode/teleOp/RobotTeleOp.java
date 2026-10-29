@@ -1,6 +1,5 @@
 package org.firstinspires.ftc.teamcode.opmode.teleOp;
 
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -10,18 +9,16 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name = "Robot TeleOp", group = "Testing")
 public class RobotTeleOp extends OpMode {
 
-    private static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    public static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    public static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.REVERSE;
 
     private static final double DRIVE_POWER_SCALE = 1.0;
     private static final double SLOW_SCALE = 0.35;
@@ -34,7 +31,7 @@ public class RobotTeleOp extends OpMode {
     private static final double INTAKE_REVERSE_POWER = -1.0;
     public static final double TRANSFER_POWER = 1.0;
 
-    public static final double OUTTAKE_VELOCITY = 2000.0;
+    public static final double OUTTAKE_VELOCITY = 1300.0;
     public static final double OUTTAKE_TOLERANCE = 100.0;
     public static final double SPINUP_TIMEOUT_SECONDS = 2.5;
     public static final double FEED_POWER = 1.0;
@@ -50,7 +47,7 @@ public class RobotTeleOp extends OpMode {
     public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
     public static final int FLOWER_START_INDEX = 0;
     public static final double BLOCKER_CLOSED_POSITION = 0.5;
-    private static final double BLOCKER_TURN_DEGREES = 50.0;
+    private static final double BLOCKER_TURN_DEGREES = -50.0;
     public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
@@ -62,26 +59,6 @@ public class RobotTeleOp extends OpMode {
     public static final double AIM_MAX_POSITION = 1.00;
 
     private static final boolean SLOW_MODE_DEFAULT = false;
-    private static final boolean FIELD_CENTRIC_DEFAULT = false;
-
-    private static final GoBildaPinpointDriver.GoBildaOdometryPods PINPOINT_POD_TYPE =
-            GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD;
-
-    private static final double PINPOINT_LEFT_X_OFFSET_MM = -84.0;
-    private static final double PINPOINT_LEFT_Y_OFFSET_MM = -168.0;
-    private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_LEFT_X_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-    private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_LEFT_Y_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-
-    private static final double PINPOINT_RIGHT_X_OFFSET_MM = -84.0;
-    private static final double PINPOINT_RIGHT_Y_OFFSET_MM = 168.0;
-    private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_RIGHT_X_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-    private static final GoBildaPinpointDriver.EncoderDirection PINPOINT_RIGHT_Y_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-
-    private static final boolean PRIMARY_PINPOINT_IS_LEFT = true;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
@@ -90,13 +67,8 @@ public class RobotTeleOp extends OpMode {
     private DcMotor intake;
     private DcMotor transfer;
     private DcMotorEx outtake;
-    private GoBildaPinpointDriver pinpointLeft;
-    private GoBildaPinpointDriver pinpointRight;
-    private GoBildaPinpointDriver pinpointPrimary;
     private Servo outtakeBlocker;
     private Servo flowerIntake;
-
-    private String headingResetResult = "not reset yet";
 
     private boolean intakeOn = false;
     private boolean transferLatched = false;
@@ -105,17 +77,13 @@ public class RobotTeleOp extends OpMode {
     private int flowerIndex = FLOWER_START_INDEX;
     private boolean blockerOpen = false;
     private boolean slowMode = SLOW_MODE_DEFAULT;
-    private boolean fieldCentric = FIELD_CENTRIC_DEFAULT;
 
     private boolean leftTriggerLatched = false;
     private boolean rightTriggerLatched = false;
 
-    private double headingOffsetRadians = 0.0;
     private double commandedOuttakeVelocity = 0.0;
 
     private boolean outtakeEncoderWarning = false;
-    private boolean primaryHeadingValid = false;
-    private boolean fieldCentricActive = false;
 
     private final ElapsedTime outtakeEncoderTimer = new ElapsedTime();
 
@@ -128,9 +96,6 @@ public class RobotTeleOp extends OpMode {
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
         transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
         outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
-        pinpointLeft = hardwareMap.tryGet(GoBildaPinpointDriver.class, Constants.PINPOINT_NAME);
-        pinpointRight = hardwareMap.tryGet(GoBildaPinpointDriver.class, Constants.SECONDARY_PINPOINT_NAME);
-        pinpointPrimary = PRIMARY_PINPOINT_IS_LEFT ? pinpointLeft : pinpointRight;
         flowerIntake = hardwareMap.get(Servo.class, Constants.FLOWER_INTAKE);
         outtakeBlocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
 
@@ -160,24 +125,13 @@ public class RobotTeleOp extends OpMode {
         outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
 
-        configurePinpoint(pinpointLeft, PINPOINT_LEFT_X_OFFSET_MM, PINPOINT_LEFT_Y_OFFSET_MM,
-                PINPOINT_LEFT_X_DIRECTION, PINPOINT_LEFT_Y_DIRECTION);
-        configurePinpoint(pinpointRight, PINPOINT_RIGHT_X_OFFSET_MM, PINPOINT_RIGHT_Y_OFFSET_MM,
-                PINPOINT_RIGHT_X_DIRECTION, PINPOINT_RIGHT_Y_DIRECTION);
-
         telemetry.addData("Status", "Initialized - nothing is commanded until START");
         telemetry.addData("Servos move at START", "flower pos %d, blocker closed", FLOWER_START_INDEX + 1);
     }
 
     @Override
     public void init_loop() {
-        updatePinpoint(pinpointLeft);
-        updatePinpoint(pinpointRight);
-
         telemetry.addData("Status", "Init - waiting for START");
-        telemetry.addData("Primary", PRIMARY_PINPOINT_IS_LEFT ? Constants.PINPOINT_NAME : Constants.SECONDARY_PINPOINT_NAME);
-        telemetry.addData("Pinpoint L", pinpointEncoderSummary(pinpointLeft));
-        telemetry.addData("Pinpoint R", pinpointEncoderSummary(pinpointRight));
         telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
         telemetry.addLine("Spin the outtake wheel by hand: the tick count must change.");
     }
@@ -192,15 +146,12 @@ public class RobotTeleOp extends OpMode {
         blockerOpen = false;
         leftTriggerLatched = false;
         rightTriggerLatched = false;
-        headingResetResult = "not reset yet";
         outtakeEncoderWarning = false;
         updateServos();
     }
 
     @Override
     public void loop() {
-        boolean yPressed = gamepad1.yWasPressed();
-        boolean backPressed = gamepad1.backWasPressed();
         boolean slowTogglePressed = gamepad1.leftStickButtonWasPressed();
         boolean outtakeTogglePressed = gamepad2.yWasPressed();
         boolean transferOnPressed = gamepad2.aWasPressed();
@@ -219,24 +170,8 @@ public class RobotTeleOp extends OpMode {
         boolean blockerTogglePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
         rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
 
-        updatePinpoint(pinpointLeft);
-        updatePinpoint(pinpointRight);
-
-        GoBildaPinpointDriver.DeviceStatus primaryStatus =
-                pinpointPrimary == null ? null : pinpointPrimary.getDeviceStatus();
-        primaryHeadingValid = primaryStatus == GoBildaPinpointDriver.DeviceStatus.READY;
-
         if (slowTogglePressed) {
             slowMode = !slowMode;
-        }
-        if (yPressed) {
-            fieldCentric = !fieldCentric;
-        }
-        if (backPressed && primaryHeadingValid) {
-            headingOffsetRadians = pinpointPrimary.getHeading(AngleUnit.RADIANS);
-            headingResetResult = "zeroed";
-        } else if (backPressed) {
-            headingResetResult = "REFUSED - PRIMARY PINPOINT NOT READY";
         }
         if (intakeTogglePressed) {
             intakeOn = !intakeOn;
@@ -298,7 +233,7 @@ public class RobotTeleOp extends OpMode {
 
         double measuredVelocity = outtake.getVelocity();
         updateOuttakeEncoderWatchdog(measuredVelocity);
-        addTelemetry(measuredVelocity, intakePower, transferPower, primaryStatus);
+        addTelemetry(measuredVelocity, intakePower, transferPower);
     }
 
     @Override
@@ -322,17 +257,6 @@ public class RobotTeleOp extends OpMode {
         double axial = deadzone(-gamepad1.left_stick_y);
         double lateral = deadzone(gamepad1.left_stick_x);
         double yaw = deadzone(gamepad1.right_stick_x);
-
-        fieldCentricActive = fieldCentric && primaryHeadingValid;
-        if (fieldCentricActive) {
-            double heading = pinpointPrimary.getHeading(AngleUnit.RADIANS) - headingOffsetRadians;
-            double cos = Math.cos(-heading);
-            double sin = Math.sin(-heading);
-            double rotatedLateral = lateral * cos - axial * sin;
-            double rotatedAxial = lateral * sin + axial * cos;
-            lateral = rotatedLateral;
-            axial = rotatedAxial;
-        }
 
         double leftFrontPower = axial + lateral + yaw;
         double leftBackPower = axial - lateral + yaw;
@@ -371,15 +295,14 @@ public class RobotTeleOp extends OpMode {
         }
     }
 
-    private void addTelemetry(double measuredVelocity, double intakePower, double transferPower,
-                              GoBildaPinpointDriver.DeviceStatus primaryStatus) {
+    private void addTelemetry(double measuredVelocity, double intakePower, double transferPower) {
         telemetry.addData("Outtake", "%s  target %.0f  measured %.0f",
                 outtakeOn ? "ON" : "OFF", outtakeVelocity, measuredVelocity);
         if (outtakeEncoderWarning) {
             telemetry.addLine("WARNING outtake commanded but measured velocity is ~0 - check the outtake encoder cable");
         }
-        telemetry.addData("Blocker", "%s  pos %.2f",
-                blockerOpen ? "OPEN" : "CLOSED", outtakeBlocker.getPosition());
+        telemetry.addData("Blocker", "%s  pos %.2f  gamepad1 RT %.2f",
+                blockerOpen ? "OPEN" : "CLOSED", outtakeBlocker.getPosition(), gamepad1.right_trigger);
         telemetry.addData("Flower", "position %d / %d  pos %.2f",
                 flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Intake", "%s  power %.2f%s",
@@ -389,59 +312,6 @@ public class RobotTeleOp extends OpMode {
                 transferLatched ? "ON" : "OFF", transferPower);
 
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
-        if (fieldCentric && !primaryHeadingValid) {
-            telemetry.addLine("FIELD-CENTRIC REQUESTED BUT PRIMARY PINPOINT IS NOT READY - DRIVING ROBOT-CENTRIC");
-        }
-        telemetry.addData("Drive mode", fieldCentricActive ? "FIELD-CENTRIC" : "ROBOT-CENTRIC");
-        telemetry.addData("Heading offset", "%.1f deg", Math.toDegrees(headingOffsetRadians));
-        telemetry.addData("Heading reset", headingResetResult);
-
-        telemetry.addData("Primary Pinpoint",
-                PRIMARY_PINPOINT_IS_LEFT ? Constants.PINPOINT_NAME : Constants.SECONDARY_PINPOINT_NAME);
-        telemetry.addData("Primary status", primaryStatus == null ? "NOT CONFIGURED" : primaryStatus);
-        if (pinpointPrimary != null) {
-            telemetry.addData("Primary freq", "%.1f Hz", pinpointPrimary.getFrequency());
-        }
-        telemetry.addData("Pinpoint L", pinpointPoseSummary(pinpointLeft));
-        telemetry.addData("Pinpoint R", pinpointPoseSummary(pinpointRight));
-    }
-
-    private void updatePinpoint(GoBildaPinpointDriver pinpoint) {
-        if (pinpoint != null) {
-            pinpoint.update();
-        }
-    }
-
-    private String pinpointEncoderSummary(GoBildaPinpointDriver pinpoint) {
-        if (pinpoint == null) {
-            return "NOT CONFIGURED";
-        }
-        return String.format("%s  freq %.1f Hz  encX %d  encY %d",
-                pinpoint.getDeviceStatus(), pinpoint.getFrequency(),
-                pinpoint.getEncoderX(), pinpoint.getEncoderY());
-    }
-
-    private String pinpointPoseSummary(GoBildaPinpointDriver pinpoint) {
-        if (pinpoint == null) {
-            return "NOT CONFIGURED";
-        }
-        return String.format("x %.1f in  y %.1f in  h %.1f deg  %s",
-                pinpoint.getPosX(DistanceUnit.INCH),
-                pinpoint.getPosY(DistanceUnit.INCH),
-                pinpoint.getHeading(AngleUnit.DEGREES),
-                pinpoint.getDeviceStatus());
-    }
-
-    private void configurePinpoint(GoBildaPinpointDriver pinpoint, double xOffsetMm, double yOffsetMm,
-                                   GoBildaPinpointDriver.EncoderDirection xDirection,
-                                   GoBildaPinpointDriver.EncoderDirection yDirection) {
-        if (pinpoint == null) {
-            return;
-        }
-        pinpoint.setOffsets(xOffsetMm, yOffsetMm, DistanceUnit.MM);
-        pinpoint.setEncoderResolution(PINPOINT_POD_TYPE);
-        pinpoint.setEncoderDirections(xDirection, yDirection);
-        pinpoint.resetPosAndIMU();
     }
 
     private boolean triggerRisingEdge(double triggerValue, boolean latched) {

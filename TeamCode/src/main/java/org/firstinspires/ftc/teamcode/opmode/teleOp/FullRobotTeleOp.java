@@ -21,8 +21,8 @@ import com.qualcomm.robotcore.util.Range;
 @TeleOp(name = "Full Robot TeleOp", group = "Match")
 public class FullRobotTeleOp extends OpMode {
 
-    private static final DcMotorSimple.Direction LEFT_DRIVE_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction RIGHT_DRIVE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction LEFT_DRIVE_DIRECTION = RobotTeleOp.LEFT_SIDE_DIRECTION;
+    private static final DcMotorSimple.Direction RIGHT_DRIVE_DIRECTION = RobotTeleOp.RIGHT_SIDE_DIRECTION;
     private static final DcMotorSimple.Direction INTAKE_DIRECTION = RobotTeleOp.INTAKE_DIRECTION;
     private static final DcMotorSimple.Direction TRANSFER_DIRECTION = RobotTeleOp.TRANSFER_DIRECTION;
     private static final DcMotorSimple.Direction OUTTAKE_DIRECTION = RobotTeleOp.OUTTAKE_DIRECTION;
@@ -62,6 +62,7 @@ public class FullRobotTeleOp extends OpMode {
     private boolean lastDown = false;
     private boolean lastRight = false;
     private boolean lastLeft = false;
+    private boolean lastRT = false;
 
     @Override
     public void init() {
@@ -147,6 +148,11 @@ public class FullRobotTeleOp extends OpMode {
         boolean down = gamepad1.dpad_down;
         boolean right = gamepad1.dpad_right;
         boolean left = gamepad1.dpad_left;
+        boolean RT  = gamepad1.right_bumper;
+
+        if(RT && !lastRT){
+            outtakeOn = !outtakeOn;
+        }
 
         if (a && !lastA) {
             outtakeOn = !outtakeOn;

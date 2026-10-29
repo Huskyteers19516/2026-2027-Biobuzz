@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 @TeleOp(name = "Frank Front Wheels TeleOp", group = "Test")
 public class frontwheel extends LinearOpMode {
@@ -19,9 +20,9 @@ public class frontwheel extends LinearOpMode {
 
 
     private static final DcMotorSimple.Direction LEFT_DIRECTION =
-            DcMotorSimple.Direction.FORWARD;
+            RobotTeleOp.LEFT_SIDE_DIRECTION;
     private static final DcMotorSimple.Direction RIGHT_DIRECTION =
-            DcMotorSimple.Direction.REVERSE;
+            RobotTeleOp.RIGHT_SIDE_DIRECTION;
 
     private DcMotor frontLeft;
     private DcMotor frontRight;

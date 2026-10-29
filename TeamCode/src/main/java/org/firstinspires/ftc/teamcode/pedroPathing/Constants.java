@@ -31,11 +31,12 @@ public class Constants {
     public static final String FLOWER_INTAKE = "flower_intake";
     public static final String OUTTAKE_BLOCKER = "outtake_blocker";
     public static final String WEBCAM = "Webcam 1";
+    public static final String IMU_NAME = "imu";
 
-    private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction FRONT_RIGHT_DIRECTION = DcMotorSimple.Direction.REVERSE;
-    private static final DcMotorSimple.Direction BACK_RIGHT_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    private static final DcMotorSimple.Direction FRONT_RIGHT_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    private static final DcMotorSimple.Direction BACK_RIGHT_DIRECTION = DcMotorSimple.Direction.FORWARD;
 
     private static final boolean MANUAL_BRAKE_MODE = true;
     private static final double POWER_THRESHOLD = 0.01;
