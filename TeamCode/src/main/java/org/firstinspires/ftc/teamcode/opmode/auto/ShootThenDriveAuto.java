@@ -49,6 +49,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
 
     private final ElapsedTime shootTimer = new ElapsedTime();
     private int shotsFired = 0;
+    private boolean blockerOpen = false;
     private String shootResult = "not started";
 
     @Override
@@ -118,17 +119,21 @@ public class ShootThenDriveAuto extends LinearOpMode {
             }
 
             blocker.setPosition(BLOCKER_OPEN_POSITION);
+            blockerOpen = true;
             transfer.setPower(FEED_TRANSFER_POWER);
             intake.setPower(FEED_INTAKE_POWER);
 
             ElapsedTime feed = new ElapsedTime();
             while (canShoot() && feed.seconds() < FEED_SECONDS) {
+                outtake.setVelocity(SHOOT_VELOCITY + RobotTeleOp.shotBoost(feed.seconds()));
                 showShootTelemetry(shot, atSpeed ? "feeding" : "feeding (spin-up timed out)");
             }
 
             transfer.setPower(0.0);
             intake.setPower(0.0);
             blocker.setPosition(BLOCKER_CLOSED_POSITION);
+            blockerOpen = false;
+            outtake.setVelocity(SHOOT_VELOCITY);
             shotsFired = shot;
 
             if (!canShoot()) {
@@ -162,7 +167,8 @@ public class ShootThenDriveAuto extends LinearOpMode {
 
     private void showShootTelemetry(int shot, String phase) {
         telemetry.addData("Phase", "shot %d / %d  %s", shot, SHOTS, phase);
-        telemetry.addData("Outtake", "target %.0f  measured %.0f", SHOOT_VELOCITY, outtake.getVelocity());
+        telemetry.addData("Outtake", "base %.0f  measured %.0f", SHOOT_VELOCITY, outtake.getVelocity());
+        telemetry.addData("Blocker", blockerOpen ? "OPEN" : "CLOSED");
         telemetry.addData("Shoot time", "%.1f / %.1f s", shootTimer.seconds(), SHOOT_TIME_LIMIT_SECONDS);
         telemetry.update();
     }
@@ -178,6 +184,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         transfer.setPower(0.0);
         intake.setPower(0.0);
         blocker.setPosition(BLOCKER_CLOSED_POSITION);
+        blockerOpen = false;
         outtake.setVelocity(0.0);
     }
 

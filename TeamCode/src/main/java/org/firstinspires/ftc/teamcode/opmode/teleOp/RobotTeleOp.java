@@ -31,8 +31,11 @@ public class RobotTeleOp extends OpMode {
     private static final double INTAKE_REVERSE_POWER = -1.0;
     public static final double TRANSFER_POWER = 1.0;
 
-    public static final double OUTTAKE_VELOCITY = 1300.0;
+    public static final double OUTTAKE_VELOCITY = 1100.0;
     public static final double OUTTAKE_TOLERANCE = 100.0;
+    public static final double SHOT_BOOST_VELOCITY = 100.0;
+    public static final double SHOT_BOOST_RAMP_SECONDS = 1.0;
+    public static final double BLOCKER_AUTO_CLOSE_SECONDS = 5.0;
     public static final double SPINUP_TIMEOUT_SECONDS = 2.5;
     public static final double FEED_POWER = 1.0;
     public static final double FEED_SECONDS = 1.0;
@@ -86,6 +89,12 @@ public class RobotTeleOp extends OpMode {
     private boolean outtakeEncoderWarning = false;
 
     private final ElapsedTime outtakeEncoderTimer = new ElapsedTime();
+    private final ElapsedTime blockerTimer = new ElapsedTime();
+
+    public static double shotBoost(double secondsSinceBlockerOpened) {
+        double ramp = Range.clip(secondsSinceBlockerOpened / SHOT_BOOST_RAMP_SECONDS, 0.0, 1.0);
+        return SHOT_BOOST_VELOCITY * ramp;
+    }
 
     @Override
     public void init() {
@@ -187,6 +196,10 @@ public class RobotTeleOp extends OpMode {
         }
         if (blockerTogglePressed) {
             blockerOpen = !blockerOpen;
+            blockerTimer.reset();
+        }
+        if (blockerOpen && blockerTimer.seconds() >= BLOCKER_AUTO_CLOSE_SECONDS) {
+            blockerOpen = false;
         }
         if (flowerUpPressed) {
             flowerIndex = Math.min(flowerIndex + 1, FLOWER_POSITIONS.length - 1);
@@ -226,7 +239,10 @@ public class RobotTeleOp extends OpMode {
         }
         transfer.setPower(transferPower);
 
-        commandedOuttakeVelocity = outtakeOn ? outtakeVelocity : 0.0;
+        double boost = blockerOpen ? shotBoost(blockerTimer.seconds()) : 0.0;
+        commandedOuttakeVelocity = outtakeOn
+                ? Range.clip(outtakeVelocity + boost, OUTTAKE_MIN_VELOCITY, OUTTAKE_MAX_VELOCITY)
+                : 0.0;
         outtake.setVelocity(commandedOuttakeVelocity);
 
         updateServos();
@@ -297,12 +313,18 @@ public class RobotTeleOp extends OpMode {
 
     private void addTelemetry(double measuredVelocity, double intakePower, double transferPower) {
         telemetry.addData("Outtake", "%s  target %.0f  measured %.0f",
-                outtakeOn ? "ON" : "OFF", outtakeVelocity, measuredVelocity);
+                outtakeOn ? "ON" : "OFF", commandedOuttakeVelocity, measuredVelocity);
+        telemetry.addData("Outtake set", "base %.0f + shot boost %.0f",
+                outtakeVelocity, outtakeOn ? commandedOuttakeVelocity - outtakeVelocity : 0.0);
         if (outtakeEncoderWarning) {
             telemetry.addLine("WARNING outtake commanded but measured velocity is ~0 - check the outtake encoder cable");
         }
         telemetry.addData("Blocker", "%s  pos %.2f  gamepad1 RT %.2f",
                 blockerOpen ? "OPEN" : "CLOSED", outtakeBlocker.getPosition(), gamepad1.right_trigger);
+        if (blockerOpen) {
+            telemetry.addData("Blocker auto close", "in %.1f s",
+                    Math.max(0.0, BLOCKER_AUTO_CLOSE_SECONDS - blockerTimer.seconds()));
+        }
         telemetry.addData("Flower", "position %d / %d  pos %.2f",
                 flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Intake", "%s  power %.2f%s",

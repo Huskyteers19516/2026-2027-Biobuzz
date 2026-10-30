@@ -406,6 +406,7 @@ public class SimpleParkAuto extends LinearOpMode {
             timer.reset();
             while (canRun() && timer.seconds() < FEED_SECONDS) {
                 odometry.update();
+                setOuttakeVelocity(SHOOT_VELOCITY + RobotTeleOp.shotBoost(timer.seconds()));
                 showShootTelemetry(label, phase + (upToSpeed ? " feeding" : " feeding (spin-up timed out)"),
                         timer.seconds(), FEED_SECONDS);
             }
@@ -413,6 +414,7 @@ public class SimpleParkAuto extends LinearOpMode {
             transfer.setPower(0.0);
             intake.setPower(0.0);
             blocker.setPosition(BLOCKER_CLOSED_POSITION);
+            setOuttakeVelocity(SHOOT_VELOCITY);
 
             if (shot < shots && !holdFor(label, "gap between shots", SHOT_GAP_SECONDS)) {
                 return false;

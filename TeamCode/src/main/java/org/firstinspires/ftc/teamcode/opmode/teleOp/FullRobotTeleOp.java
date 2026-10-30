@@ -16,6 +16,7 @@ import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 @TeleOp(name = "Full Robot TeleOp", group = "Match")
@@ -54,6 +55,7 @@ public class FullRobotTeleOp extends OpMode {
     private boolean outtakeOn = false;
     private int flowerIndex = RobotTeleOp.FLOWER_START_INDEX;
     private boolean blockerOpen = false;
+    private final ElapsedTime blockerTimer = new ElapsedTime();
 
     private boolean lastA = false;
     private boolean lastX = false;
@@ -162,6 +164,10 @@ public class FullRobotTeleOp extends OpMode {
         }
         if (b && !lastB) {
             blockerOpen = !blockerOpen;
+            blockerTimer.reset();
+        }
+        if (blockerOpen && blockerTimer.seconds() >= RobotTeleOp.BLOCKER_AUTO_CLOSE_SECONDS) {
+            blockerOpen = false;
         }
         if (up && !lastUp) {
             outtakeVelocity += OUTTAKE_SMALL_STEP;
@@ -187,7 +193,15 @@ public class FullRobotTeleOp extends OpMode {
     }
 
     private void runOuttake() {
-        outtake.setVelocity(outtakeOn ? outtakeVelocity : 0.0);
+        outtake.setVelocity(commandedVelocity());
+    }
+
+    private double commandedVelocity() {
+        if (!outtakeOn) {
+            return 0.0;
+        }
+        double boost = blockerOpen ? RobotTeleOp.shotBoost(blockerTimer.seconds()) : 0.0;
+        return Range.clip(outtakeVelocity + boost, OUTTAKE_MIN_VELOCITY, OUTTAKE_MAX_VELOCITY);
     }
 
     private void updateServos() {
@@ -197,11 +211,17 @@ public class FullRobotTeleOp extends OpMode {
 
     private void showTelemetry() {
         telemetry.addData("Outtake", "%s  target %.0f  measured %.0f ticks/s",
-                outtakeOn ? "ON" : "OFF", outtakeVelocity, outtake.getVelocity());
+                outtakeOn ? "ON" : "OFF", commandedVelocity(), outtake.getVelocity());
+        telemetry.addData("Outtake set", "base %.0f + shot boost %.0f",
+                outtakeVelocity, outtakeOn ? commandedVelocity() - outtakeVelocity : 0.0);
         telemetry.addData("Intake / Transfer", "%.2f / %.2f", intake.getPower(), transfer.getPower());
         telemetry.addData("Flower", "position %d / %d  pos %.2f",
                 flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Blocker", "%s  pos %.2f", blockerOpen ? "OPEN" : "CLOSED", blocker.getPosition());
+        if (blockerOpen) {
+            telemetry.addData("Blocker auto close", "in %.1f s",
+                    Math.max(0.0, RobotTeleOp.BLOCKER_AUTO_CLOSE_SECONDS - blockerTimer.seconds()));
+        }
         showControls();
     }
 

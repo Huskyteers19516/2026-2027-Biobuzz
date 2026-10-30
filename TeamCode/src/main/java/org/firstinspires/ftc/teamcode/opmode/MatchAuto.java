@@ -574,6 +574,7 @@ public class MatchAuto extends LinearOpMode {
 
             ElapsedTime feedTimer = new ElapsedTime();
             while (opModeIsActive() && feedTimer.seconds() < FEED_SECONDS) {
+                outtake.setVelocity(OUTTAKE_VELOCITY + RobotTeleOp.shotBoost(feedTimer.seconds()));
                 tick();
                 addStepTelemetry(index, total, step, "feeding");
                 telemetry.addData("Shot", "%d / %d", shot + 1, shots);
@@ -585,6 +586,7 @@ public class MatchAuto extends LinearOpMode {
 
             transfer.setPower(0.0);
             blocker.setPosition(BLOCKER_CLOSED_POSITION);
+            outtake.setVelocity(OUTTAKE_VELOCITY);
 
             if (shot < shots - 1 && canKeepRunning()) {
                 holdFor(SHOT_GAP_SECONDS);
