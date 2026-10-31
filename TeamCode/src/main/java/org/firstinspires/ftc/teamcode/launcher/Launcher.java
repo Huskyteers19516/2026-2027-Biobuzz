@@ -23,8 +23,8 @@ public class Launcher {
 
     public enum State { OFF, SPINNING_UP, READY, FEEDING, CLOSING, RECOVERING, MANUAL_OPEN }
 
-    public static final double DEFAULT_TARGET_VELOCITY = 1100.0;
-    public static final double MIN_TARGET_VELOCITY = 0.0;
+    public static final double DEFAULT_TARGET_VELOCITY = 1250.0;
+    public static final double MIN_TARGET_VELOCITY = 1150.0;
     public static final double MAX_TARGET_VELOCITY = 2800.0;
 
     public static final ControlMode DEFAULT_CONTROL_MODE = ControlMode.CUSTOM;

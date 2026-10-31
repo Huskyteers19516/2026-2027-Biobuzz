@@ -20,8 +20,8 @@ public class ShootThenDriveAuto extends LinearOpMode {
 
     private static final int SHOTS = 3;
     private static final double SHOOT_TIME_LIMIT_SECONDS = 13.0;
-    private static final double DRIVE_SECONDS = 2.0;
-    private static final double DRIVE_POWER = 0.4;
+    private static final double DRIVE_SECONDS = 1.5;
+    private static final double DRIVE_POWER = 0.3;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
