@@ -3,12 +3,11 @@ package org.firstinspires.ftc.teamcode.opmode.teleOp;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name = "Robot TeleOp", group = "Testing")
@@ -31,20 +30,9 @@ public class RobotTeleOp extends OpMode {
     private static final double INTAKE_REVERSE_POWER = -1.0;
     public static final double TRANSFER_POWER = 1.0;
 
-    public static final double OUTTAKE_VELOCITY = 1100.0;
-    public static final double OUTTAKE_TOLERANCE = 100.0;
-    public static final double SHOT_BOOST_VELOCITY = 100.0;
-    public static final double SHOT_BOOST_RAMP_SECONDS = 1.0;
-    public static final double BLOCKER_AUTO_CLOSE_SECONDS = 5.0;
-    public static final double SPINUP_TIMEOUT_SECONDS = 2.5;
-    public static final double FEED_POWER = 1.0;
-    public static final double FEED_SECONDS = 1.0;
-    public static final boolean KEEP_OUTTAKE_SPINNING = false;
-
-    private static final double OUTTAKE_MIN_VELOCITY = 0.0;
-    private static final double OUTTAKE_MAX_VELOCITY = 6000.0;
     private static final double OUTTAKE_SMALL_STEP = 100.0;
     private static final double OUTTAKE_BIG_STEP = 500.0;
+    private static final int READY_RUMBLE_MS = 200;
 
     private static final double SERVO_RANGE_DEGREES = 270.0;
     public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
@@ -53,9 +41,6 @@ public class RobotTeleOp extends OpMode {
     private static final double BLOCKER_TURN_DEGREES = -50.0;
     public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
-
-    private static final double OUTTAKE_ENCODER_STALL_TICKS = 50.0;
-    private static final double OUTTAKE_ENCODER_WARN_SECONDS = 2.0;
 
     public static final double AIM_START_POSITION = 0.50;
     public static final double AIM_MIN_POSITION = 0.00;
@@ -68,33 +53,17 @@ public class RobotTeleOp extends OpMode {
     private DcMotor rightFront;
     private DcMotor rightBack;
     private DcMotor intake;
-    private DcMotor transfer;
-    private DcMotorEx outtake;
-    private Servo outtakeBlocker;
     private Servo flowerIntake;
+    private Launcher launcher;
 
     private boolean intakeOn = false;
     private boolean transferLatched = false;
-    private boolean outtakeOn = false;
-    private double outtakeVelocity = OUTTAKE_VELOCITY;
     private int flowerIndex = FLOWER_START_INDEX;
-    private boolean blockerOpen = false;
     private boolean slowMode = SLOW_MODE_DEFAULT;
 
     private boolean leftTriggerLatched = false;
     private boolean rightTriggerLatched = false;
-
-    private double commandedOuttakeVelocity = 0.0;
-
-    private boolean outtakeEncoderWarning = false;
-
-    private final ElapsedTime outtakeEncoderTimer = new ElapsedTime();
-    private final ElapsedTime blockerTimer = new ElapsedTime();
-
-    public static double shotBoost(double secondsSinceBlockerOpened) {
-        double ramp = Range.clip(secondsSinceBlockerOpened / SHOT_BOOST_RAMP_SECONDS, 0.0, 1.0);
-        return SHOT_BOOST_VELOCITY * ramp;
-    }
+    private boolean wasReady = false;
 
     @Override
     public void init() {
@@ -103,36 +72,29 @@ public class RobotTeleOp extends OpMode {
         rightFront = hardwareMap.get(DcMotor.class, Constants.FRONT_RIGHT_MOTOR_NAME);
         rightBack = hardwareMap.get(DcMotor.class, Constants.BACK_RIGHT_MOTOR_NAME);
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
-        transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
-        outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
         flowerIntake = hardwareMap.get(Servo.class, Constants.FLOWER_INTAKE);
-        outtakeBlocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
+        launcher = new Launcher(hardwareMap);
+        launcher.setQueueExpireSeconds(Launcher.TELEOP_QUEUE_EXPIRE_SECONDS);
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
         leftBack.setDirection(LEFT_SIDE_DIRECTION);
         rightFront.setDirection(RIGHT_SIDE_DIRECTION);
         rightBack.setDirection(RIGHT_SIDE_DIRECTION);
         intake.setDirection(INTAKE_DIRECTION);
-        transfer.setDirection(TRANSFER_DIRECTION);
-        outtake.setDirection(OUTTAKE_DIRECTION);
 
         leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
         leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+        telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
         telemetry.addData("Status", "Initialized - nothing is commanded until START");
         telemetry.addData("Servos move at START", "flower pos %d, blocker closed", FLOWER_START_INDEX + 1);
@@ -140,31 +102,30 @@ public class RobotTeleOp extends OpMode {
 
     @Override
     public void init_loop() {
+        launcher.sense();
         telemetry.addData("Status", "Init - waiting for START");
-        telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
-        telemetry.addLine("Spin the outtake wheel by hand: the tick count must change.");
+        telemetry.addLine("Spin the outtake wheel by hand: Outtake velocity must change.");
     }
 
     @Override
     public void start() {
         intakeOn = false;
         transferLatched = false;
-        outtakeOn = false;
-        outtakeVelocity = OUTTAKE_VELOCITY;
         flowerIndex = FLOWER_START_INDEX;
-        blockerOpen = false;
         leftTriggerLatched = false;
         rightTriggerLatched = false;
-        outtakeEncoderWarning = false;
-        updateServos();
+        wasReady = false;
+        launcher.setTargetVelocity(Launcher.DEFAULT_TARGET_VELOCITY);
+        flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
+        launcher.update();
     }
 
     @Override
     public void loop() {
         boolean slowTogglePressed = gamepad1.leftStickButtonWasPressed();
-        boolean outtakeTogglePressed = gamepad2.yWasPressed();
-        boolean transferOnPressed = gamepad2.aWasPressed();
-        boolean transferOffPressed = gamepad2.bWasPressed();
+        boolean launcherTogglePressed = gamepad2.yWasPressed();
+        boolean transferOnPressed = gamepad2.aWasPressed() && !gamepad2.start;
+        boolean transferOffPressed = gamepad2.bWasPressed() && !gamepad2.start;
         boolean flowerUpPressed = gamepad2.rightBumperWasPressed();
         boolean flowerDownPressed = gamepad2.leftBumperWasPressed();
         boolean velocityUpPressed = gamepad2.dpadUpWasPressed();
@@ -176,8 +137,10 @@ public class RobotTeleOp extends OpMode {
         boolean intakeTogglePressed = triggerRisingEdge(leftTriggerValue, leftTriggerLatched);
         leftTriggerLatched = updateTriggerLatch(leftTriggerValue, leftTriggerLatched);
         double rightTriggerValue = gamepad1.right_trigger;
-        boolean blockerTogglePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
+        boolean firePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
         rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
+        boolean singleShotPressed = gamepad1.rightBumperWasPressed();
+        boolean reversing = gamepad1.left_bumper;
 
         if (slowTogglePressed) {
             slowMode = !slowMode;
@@ -191,15 +154,8 @@ public class RobotTeleOp extends OpMode {
         if (transferOffPressed) {
             transferLatched = false;
         }
-        if (outtakeTogglePressed) {
-            outtakeOn = !outtakeOn;
-        }
-        if (blockerTogglePressed) {
-            blockerOpen = !blockerOpen;
-            blockerTimer.reset();
-        }
-        if (blockerOpen && blockerTimer.seconds() >= BLOCKER_AUTO_CLOSE_SECONDS) {
-            blockerOpen = false;
+        if (launcherTogglePressed) {
+            launcher.toggle();
         }
         if (flowerUpPressed) {
             flowerIndex = Math.min(flowerIndex + 1, FLOWER_POSITIONS.length - 1);
@@ -208,23 +164,33 @@ public class RobotTeleOp extends OpMode {
             flowerIndex = Math.max(flowerIndex - 1, 0);
         }
         if (velocityUpPressed) {
-            outtakeVelocity += OUTTAKE_SMALL_STEP;
+            launcher.setTargetVelocity(launcher.targetVelocity() + OUTTAKE_SMALL_STEP);
         }
         if (velocityDownPressed) {
-            outtakeVelocity -= OUTTAKE_SMALL_STEP;
+            launcher.setTargetVelocity(launcher.targetVelocity() - OUTTAKE_SMALL_STEP);
         }
         if (velocityBigUpPressed) {
-            outtakeVelocity += OUTTAKE_BIG_STEP;
+            launcher.setTargetVelocity(launcher.targetVelocity() + OUTTAKE_BIG_STEP);
         }
         if (velocityBigDownPressed) {
-            outtakeVelocity -= OUTTAKE_BIG_STEP;
+            launcher.setTargetVelocity(launcher.targetVelocity() - OUTTAKE_BIG_STEP);
         }
-        outtakeVelocity = Range.clip(outtakeVelocity, OUTTAKE_MIN_VELOCITY, OUTTAKE_MAX_VELOCITY);
+
+        if (reversing) {
+            launcher.cancelShots();
+        } else {
+            if (firePressed && launcher.queuedShots() == 0) {
+                launcher.requestShots(Launcher.BURST_SIZE);
+            } else if (singleShotPressed && launcher.queuedShots() == 0) {
+                launcher.requestShots(1);
+            }
+        }
+        launcher.setManualBlockerOpen(gamepad2.x);
 
         driveMecanum();
 
         double intakePower;
-        if (gamepad1.left_bumper) {
+        if (reversing) {
             intakePower = INTAKE_REVERSE_POWER;
         } else {
             intakePower = intakeOn ? TELEOP_INTAKE_POWER : 0.0;
@@ -232,24 +198,23 @@ public class RobotTeleOp extends OpMode {
         intake.setPower(intakePower);
 
         double transferPower;
-        if (gamepad1.left_bumper) {
+        if (reversing) {
             transferPower = -TRANSFER_POWER;
         } else {
             transferPower = (intakeOn || transferLatched) ? TRANSFER_POWER : 0.0;
         }
-        transfer.setPower(transferPower);
+        launcher.setStagingTransferPower(transferPower);
 
-        double boost = blockerOpen ? shotBoost(blockerTimer.seconds()) : 0.0;
-        commandedOuttakeVelocity = outtakeOn
-                ? Range.clip(outtakeVelocity + boost, OUTTAKE_MIN_VELOCITY, OUTTAKE_MAX_VELOCITY)
-                : 0.0;
-        outtake.setVelocity(commandedOuttakeVelocity);
+        flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
+        launcher.update();
 
-        updateServos();
+        boolean ready = launcher.isReady();
+        if (ready && !wasReady) {
+            gamepad1.rumble(READY_RUMBLE_MS);
+        }
+        wasReady = ready;
 
-        double measuredVelocity = outtake.getVelocity();
-        updateOuttakeEncoderWatchdog(measuredVelocity);
-        addTelemetry(measuredVelocity, intakePower, transferPower);
+        addTelemetry(intakePower, transferPower);
     }
 
     @Override
@@ -259,14 +224,7 @@ public class RobotTeleOp extends OpMode {
         rightFront.setPower(0.0);
         rightBack.setPower(0.0);
         intake.setPower(0.0);
-        transfer.setPower(0.0);
-        outtake.setVelocity(0.0);
-        outtake.setPower(0.0);
-    }
-
-    private void updateServos() {
-        flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
-        outtakeBlocker.setPosition(blockerOpen ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
+        launcher.shutdown();
     }
 
     private void driveMecanum() {
@@ -298,42 +256,17 @@ public class RobotTeleOp extends OpMode {
         rightBack.setPower(rightBackPower * scale);
     }
 
-    private void updateOuttakeEncoderWatchdog(double measuredVelocity) {
-        boolean commanding = Math.abs(commandedOuttakeVelocity) > 0.0;
-        boolean stalled = Math.abs(measuredVelocity) < OUTTAKE_ENCODER_STALL_TICKS;
-        if (!stalled) {
-            outtakeEncoderTimer.reset();
-            outtakeEncoderWarning = false;
-        } else if (!commanding) {
-            outtakeEncoderTimer.reset();
-        } else if (outtakeEncoderTimer.seconds() >= OUTTAKE_ENCODER_WARN_SECONDS) {
-            outtakeEncoderWarning = true;
-        }
-    }
-
-    private void addTelemetry(double measuredVelocity, double intakePower, double transferPower) {
-        telemetry.addData("Outtake", "%s  target %.0f  measured %.0f",
-                outtakeOn ? "ON" : "OFF", commandedOuttakeVelocity, measuredVelocity);
-        telemetry.addData("Outtake set", "base %.0f + shot boost %.0f",
-                outtakeVelocity, outtakeOn ? commandedOuttakeVelocity - outtakeVelocity : 0.0);
-        if (outtakeEncoderWarning) {
-            telemetry.addLine("WARNING outtake commanded but measured velocity is ~0 - check the outtake encoder cable");
-        }
-        telemetry.addData("Blocker", "%s  pos %.2f  gamepad1 RT %.2f",
-                blockerOpen ? "OPEN" : "CLOSED", outtakeBlocker.getPosition(), gamepad1.right_trigger);
-        if (blockerOpen) {
-            telemetry.addData("Blocker auto close", "in %.1f s",
-                    Math.max(0.0, BLOCKER_AUTO_CLOSE_SECONDS - blockerTimer.seconds()));
-        }
+    private void addTelemetry(double intakePower, double transferPower) {
+        launcher.addTelemetry(telemetry);
         telemetry.addData("Flower", "position %d / %d  pos %.2f",
                 flowerIndex + 1, FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Intake", "%s  power %.2f%s",
                 intakeOn ? "ON" : "OFF", intakePower,
                 gamepad1.left_bumper ? "  REVERSE held" : "");
-        telemetry.addData("Transfer", "latch %s  power %.2f",
+        telemetry.addData("Transfer", "latch %s  staging power %.2f",
                 transferLatched ? "ON" : "OFF", transferPower);
-
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
+        telemetry.addLine("gp1 RT fire 3   gp1 RB fire 1   gp1 LB cancel   gp2 Y launcher   gp2 X hold = open blocker");
     }
 
     private boolean triggerRisingEdge(double triggerValue, boolean latched) {

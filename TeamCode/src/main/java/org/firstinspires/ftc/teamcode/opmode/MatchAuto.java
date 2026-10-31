@@ -7,11 +7,10 @@ import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -156,17 +155,8 @@ public class MatchAuto extends LinearOpMode {
         return steps;
     }
 
-    private static final double OUTTAKE_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
-    private static final double OUTTAKE_TOLERANCE = RobotTeleOp.OUTTAKE_TOLERANCE;
-    private static final double SPINUP_TIMEOUT_SECONDS = RobotTeleOp.SPINUP_TIMEOUT_SECONDS;
-    private static final double FEED_POWER = RobotTeleOp.FEED_POWER;
-    private static final double FEED_SECONDS = RobotTeleOp.FEED_SECONDS;
-    private static final boolean KEEP_OUTTAKE_SPINNING = RobotTeleOp.KEEP_OUTTAKE_SPINNING;
     private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
-    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
-    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
-    private static final double SHOT_GAP_SECONDS = 0.4;
     private static final double MAX_ACTION_SECONDS = 8.0;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
     private static final double TURN_TOLERANCE_DEGREES = 2.0;
@@ -199,9 +189,7 @@ public class MatchAuto extends LinearOpMode {
     private Follower follower;
     private GoalScanner scanner;
     private DcMotor intake;
-    private DcMotor transfer;
-    private DcMotorEx outtake;
-    private Servo blocker;
+    private Launcher launcher;
     private DcMotor LeftFront;
     private DcMotor Leftback;
     private DcMotor riightfront;
@@ -237,22 +225,14 @@ public class MatchAuto extends LinearOpMode {
 
 
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
-        transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
-        outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
-        blocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
-
         intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
-        transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
-        outtake.setDirection(RobotTeleOp.OUTTAKE_DIRECTION);
-
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        launcher = new Launcher(hardwareMap);
+        launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
+        launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
+        telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
         follower.setPose(startPose());
 
@@ -283,7 +263,7 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.addData("Start pose", formatPose(startPose()));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
                 telemetry.addData("Localizer", Constants.PINPOINT_NAME);
-                telemetry.addData("Outtake ticks", outtake.getCurrentPosition());
+                launcher.sense();
 
                 telemetry.addLine();
                 telemetry.addData("Vision aiming", VISION_AIMING_ENABLED ? "ENABLED" : "DISABLED (static aim only)");
@@ -326,7 +306,6 @@ public class MatchAuto extends LinearOpMode {
 
             try {
                 follower.setPose(startPose());
-                blocker.setPosition(BLOCKER_CLOSED_POSITION);
                 tick();
                 runtime.reset();
 
@@ -394,6 +373,7 @@ public class MatchAuto extends LinearOpMode {
     private void tick() {
         follower.update();
         scanner.update();
+        launcher.update();
     }
 
     private boolean budgetExhausted() {
@@ -405,6 +385,9 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private void runStep(int index, int total, Step step) {
+        if (step.shots > 0) {
+            launcher.spinUp();
+        }
         boolean timedOut = drive(index, total, step);
 
         if (!opModeIsActive()) {
@@ -526,80 +509,50 @@ public class MatchAuto extends LinearOpMode {
             return;
         }
 
-        for (int shot = 0; shot < shots; shot++) {
-            if (!canKeepRunning()) {
-                break;
-            }
-
-            outtake.setVelocity(OUTTAKE_VELOCITY);
-
+        launcher.spinUp();
+        int detected = 0;
+        for (int shot = 0; shot < shots && canKeepRunning(); shot++) {
             scanAimAndCommit(index, total, step, shot, shots);
-
-            ElapsedTime spinUpTimer = new ElapsedTime();
-            boolean atSpeed = false;
-
-            while (canKeepRunning() && spinUpTimer.seconds() < SPINUP_TIMEOUT_SECONDS) {
-                tick();
-                double velocity = outtake.getVelocity();
-                if (Math.abs(velocity - OUTTAKE_VELOCITY) <= OUTTAKE_TOLERANCE) {
-                    atSpeed = true;
-                    break;
-                }
-                addStepTelemetry(index, total, step, "spinning up");
-                telemetry.addData("Shot", "%d / %d", shot + 1, shots);
-                addAimTelemetry();
-                telemetry.addData("Outtake vel", "measured %.0f / target %.0f  tol %.0f",
-                        velocity, OUTTAKE_VELOCITY, OUTTAKE_TOLERANCE);
-                telemetry.addData("Spin-up time", "%.2f / %.2f s",
-                        spinUpTimer.seconds(), SPINUP_TIMEOUT_SECONDS);
-                telemetry.update();
+            if (fireOne(index, total, step, String.format("shot %d / %d", shot + 1, shots))) {
+                detected++;
             }
-
-            lastShotResult = atSpeed
-                    ? String.format("shot %d at speed after %.2f s", shot + 1, spinUpTimer.seconds())
-                    : String.format("shot %d SPIN-UP TIMEOUT at %.0f tps", shot + 1, outtake.getVelocity());
-
-            if (!opModeIsActive()) {
-                break;
-            }
-
-            if (!atSpeed && budgetExhausted()) {
-                lastShotResult = String.format("shot %d abandoned - budget %.1f s reached",
-                        shot + 1, AUTONOMOUS_BUDGET_SECONDS);
-                break;
-            }
-
-            blocker.setPosition(BLOCKER_OPEN_POSITION);
-            transfer.setPower(FEED_POWER);
-
-            ElapsedTime feedTimer = new ElapsedTime();
-            while (opModeIsActive() && feedTimer.seconds() < FEED_SECONDS) {
-                outtake.setVelocity(OUTTAKE_VELOCITY + RobotTeleOp.shotBoost(feedTimer.seconds()));
-                tick();
-                addStepTelemetry(index, total, step, "feeding");
-                telemetry.addData("Shot", "%d / %d", shot + 1, shots);
-                addAimTelemetry();
-                telemetry.addData("Feed time", "%.2f / %.2f s", feedTimer.seconds(), FEED_SECONDS);
-                telemetry.addData("Outtake vel", "%.0f", outtake.getVelocity());
-                telemetry.update();
-            }
-
-            transfer.setPower(0.0);
-            blocker.setPosition(BLOCKER_CLOSED_POSITION);
-            outtake.setVelocity(OUTTAKE_VELOCITY);
-
-            if (shot < shots - 1 && canKeepRunning()) {
-                holdFor(SHOT_GAP_SECONDS);
+        }
+        for (int extra = 0; detected < shots && extra < Launcher.AUTO_EXTRA_ATTEMPTS && canKeepRunning(); extra++) {
+            if (fireOne(index, total, step, String.format("extra feed %d", extra + 1))) {
+                detected++;
             }
         }
 
-        transfer.setPower(0.0);
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
+        Launcher.Shot last = launcher.lastShot();
+        lastShotResult = String.format("step %d: %d / %d shots detected%s", index + 1, detected, shots,
+                last == null ? "" : "  last " + last.summary());
 
-        if (!KEEP_OUTTAKE_SPINNING) {
-            outtake.setVelocity(0.0);
-            outtake.setPower(0.0);
+        if (!Launcher.AUTO_KEEP_SPINNING) {
+            launcher.stop();
         }
+    }
+
+    private boolean fireOne(int index, int total, Step step, String label) {
+        int attemptsBefore = launcher.shotsAttempted();
+        int detectedBefore = launcher.shotsDetected();
+        launcher.requestShots(1);
+        ElapsedTime shotTimer = new ElapsedTime();
+
+        while (canKeepRunning() && (launcher.shotsAttempted() == attemptsBefore || launcher.isBusy())) {
+            if (!launcher.isBusy() && (!launcher.canFire() || shotTimer.seconds() >= Launcher.AUTO_SHOT_TIMEOUT_SECONDS)) {
+                break;
+            }
+            tick();
+            intake.setPower(launcher.isFeeding() ? Launcher.AUTO_FEED_INTAKE_POWER : 0.0);
+            addStepTelemetry(index, total, step, label);
+            launcher.addTelemetry(telemetry);
+            addAimTelemetry();
+            telemetry.update();
+        }
+
+        launcher.cancelShots();
+        intake.setPower(0.0);
+        return launcher.shotsDetected() > detectedBefore;
     }
 
     private void scanAimAndCommit(int index, int total, Step step, int shot, int shots) {
@@ -880,10 +833,7 @@ public class MatchAuto extends LinearOpMode {
 
     private void stopAll() {
         intake.setPower(0.0);
-        transfer.setPower(0.0);
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
-        outtake.setVelocity(0.0);
-        outtake.setPower(0.0);
+        launcher.shutdown();
         follower.stop();
         follower.update();
     }

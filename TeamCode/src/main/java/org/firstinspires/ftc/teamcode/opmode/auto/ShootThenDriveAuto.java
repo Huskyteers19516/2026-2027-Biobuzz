@@ -5,18 +5,14 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_RIGHT_M
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
+import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 
 @Autonomous(name = "Shoot 3 Then Drive", group = "Meet0")
@@ -27,29 +23,14 @@ public class ShootThenDriveAuto extends LinearOpMode {
     private static final double DRIVE_SECONDS = 2.0;
     private static final double DRIVE_POWER = 0.4;
 
-    private static final double SHOOT_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
-    private static final double SHOOT_TOLERANCE = RobotTeleOp.OUTTAKE_TOLERANCE;
-    private static final double SPINUP_TIMEOUT_SECONDS = RobotTeleOp.SPINUP_TIMEOUT_SECONDS;
-    private static final double FEED_SECONDS = RobotTeleOp.FEED_SECONDS;
-    private static final double FEED_TRANSFER_POWER = RobotTeleOp.FEED_POWER;
-    private static final double FEED_INTAKE_POWER = 1.0;
-    private static final double SHOT_GAP_SECONDS = 0.4;
-
-    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
-    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
-
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
     private DcMotor rightBack;
     private DcMotor intake;
-    private DcMotor transfer;
-    private DcMotorEx outtake;
-    private Servo blocker;
+    private Launcher launcher;
 
     private final ElapsedTime shootTimer = new ElapsedTime();
-    private int shotsFired = 0;
-    private boolean blockerOpen = false;
     private String shootResult = "not started";
 
     @Override
@@ -59,21 +40,17 @@ public class ShootThenDriveAuto extends LinearOpMode {
         rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
         rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
         intake = initMotor(INTAKE, RobotTeleOp.INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
-        transfer = initMotor(TRANSFER, RobotTeleOp.TRANSFER_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
 
-        outtake = hardwareMap.get(DcMotorEx.class, OUTTAKE);
-        outtake.setDirection(RobotTeleOp.OUTTAKE_DIRECTION);
-        outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        outtake.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
-
-        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
+        launcher = new Launcher(hardwareMap);
+        launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
+        telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
         while (opModeInInit()) {
+            launcher.sense();
             telemetry.addLine("Shoot 3 Then Drive");
             telemetry.addData("Plan", "shoot %d (max %.0f s), then drive forward %.1f s at %.2f",
                     SHOTS, SHOOT_TIME_LIMIT_SECONDS, DRIVE_SECONDS, DRIVE_POWER);
-            telemetry.addData("Outtake velocity", "%.0f", SHOOT_VELOCITY);
+            telemetry.addData("Target velocity", "%.0f", launcher.targetVelocity());
             telemetry.update();
         }
 
@@ -82,71 +59,61 @@ public class ShootThenDriveAuto extends LinearOpMode {
         }
 
         try {
-            blocker.setPosition(BLOCKER_CLOSED_POSITION);
             shootTimer.reset();
             shoot();
-            stopShooter();
+            launcher.stop();
+            intake.setPower(0.0);
 
             if (opModeIsActive()) {
                 driveForward();
             }
         } finally {
-            stopAll();
+            setDrivePower(0.0);
+            intake.setPower(0.0);
+            launcher.shutdown();
         }
 
         telemetry.addData("Status", "Finished");
-        telemetry.addData("Shots fed", "%d / %d", shotsFired, SHOTS);
         telemetry.addData("Shoot result", shootResult);
+        Launcher.Shot last = launcher.lastShot();
+        if (last != null) {
+            telemetry.addData("Last shot", last.summary());
+        }
         telemetry.update();
     }
 
     private void shoot() {
-        outtake.setVelocity(SHOOT_VELOCITY);
+        int detectedAtStart = launcher.shotsDetected();
+        int attemptsAtStart = launcher.shotsAttempted();
+        int maxAttempts = SHOTS + Launcher.AUTO_EXTRA_ATTEMPTS;
 
-        for (int shot = 1; shot <= SHOTS; shot++) {
-            ElapsedTime spinUp = new ElapsedTime();
-            boolean atSpeed = false;
-            while (canShoot() && spinUp.seconds() < SPINUP_TIMEOUT_SECONDS) {
-                atSpeed = Math.abs(outtake.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE;
-                if (atSpeed) {
-                    break;
-                }
-                showShootTelemetry(shot, "spinning up");
+        launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
+        launcher.spinUp();
+
+        while (canShoot()) {
+            int detected = launcher.shotsDetected() - detectedAtStart;
+            int attempts = launcher.shotsAttempted() - attemptsAtStart;
+            if (!launcher.isBusy() && (detected >= SHOTS || attempts >= maxAttempts || !launcher.canFire())) {
+                break;
             }
-            if (!canShoot()) {
-                shootResult = String.format("time limit reached before shot %d", shot);
-                return;
+            if (launcher.queuedShots() == 0 && !launcher.isBusy()) {
+                launcher.requestShots(1);
             }
+            launcher.update();
+            intake.setPower(launcher.isFeeding() ? Launcher.AUTO_FEED_INTAKE_POWER : 0.0);
 
-            blocker.setPosition(BLOCKER_OPEN_POSITION);
-            blockerOpen = true;
-            transfer.setPower(FEED_TRANSFER_POWER);
-            intake.setPower(FEED_INTAKE_POWER);
-
-            ElapsedTime feed = new ElapsedTime();
-            while (canShoot() && feed.seconds() < FEED_SECONDS) {
-                outtake.setVelocity(SHOOT_VELOCITY + RobotTeleOp.shotBoost(feed.seconds()));
-                showShootTelemetry(shot, atSpeed ? "feeding" : "feeding (spin-up timed out)");
-            }
-
-            transfer.setPower(0.0);
-            intake.setPower(0.0);
-            blocker.setPosition(BLOCKER_CLOSED_POSITION);
-            blockerOpen = false;
-            outtake.setVelocity(SHOOT_VELOCITY);
-            shotsFired = shot;
-
-            if (!canShoot()) {
-                shootResult = String.format("time limit reached during shot %d", shot);
-                return;
-            }
-
-            ElapsedTime gap = new ElapsedTime();
-            while (shot < SHOTS && canShoot() && gap.seconds() < SHOT_GAP_SECONDS) {
-                showShootTelemetry(shot, "gap");
-            }
+            telemetry.addData("Phase", "shooting  %d / %d detected  %d attempts", detected, SHOTS, attempts);
+            launcher.addTelemetry(telemetry);
+            telemetry.addData("Shoot time", "%.1f / %.1f s", shootTimer.seconds(), SHOOT_TIME_LIMIT_SECONDS);
+            telemetry.update();
         }
-        shootResult = String.format("all %d shots fed in %.1f s", SHOTS, shootTimer.seconds());
+
+        launcher.cancelShots();
+        int detected = launcher.shotsDetected() - detectedAtStart;
+        int attempts = launcher.shotsAttempted() - attemptsAtStart;
+        shootResult = String.format("%d / %d shots detected, %d feeds, %.1f s%s",
+                detected, SHOTS, attempts, shootTimer.seconds(),
+                shootTimer.seconds() >= SHOOT_TIME_LIMIT_SECONDS ? " (time limit)" : "");
     }
 
     private boolean canShoot() {
@@ -157,6 +124,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         setDrivePower(DRIVE_POWER);
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.seconds() < DRIVE_SECONDS) {
+            launcher.update();
             telemetry.addData("Phase", "driving forward");
             telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), DRIVE_SECONDS);
             telemetry.addData("Shoot result", shootResult);
@@ -165,32 +133,11 @@ public class ShootThenDriveAuto extends LinearOpMode {
         setDrivePower(0.0);
     }
 
-    private void showShootTelemetry(int shot, String phase) {
-        telemetry.addData("Phase", "shot %d / %d  %s", shot, SHOTS, phase);
-        telemetry.addData("Outtake", "base %.0f  measured %.0f", SHOOT_VELOCITY, outtake.getVelocity());
-        telemetry.addData("Blocker", blockerOpen ? "OPEN" : "CLOSED");
-        telemetry.addData("Shoot time", "%.1f / %.1f s", shootTimer.seconds(), SHOOT_TIME_LIMIT_SECONDS);
-        telemetry.update();
-    }
-
     private void setDrivePower(double power) {
         leftFront.setPower(power);
         leftBack.setPower(power);
         rightFront.setPower(power);
         rightBack.setPower(power);
-    }
-
-    private void stopShooter() {
-        transfer.setPower(0.0);
-        intake.setPower(0.0);
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
-        blockerOpen = false;
-        outtake.setVelocity(0.0);
-    }
-
-    private void stopAll() {
-        setDrivePower(0.0);
-        stopShooter();
     }
 
     private DcMotor initMotor(String name, DcMotorSimple.Direction direction, DcMotor.ZeroPowerBehavior behavior) {

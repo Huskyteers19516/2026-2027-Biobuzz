@@ -2,20 +2,16 @@ package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.IMU_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
-import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.TRANSFER;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
-import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
+import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.FieldPointsBlue;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
@@ -85,22 +81,8 @@ public class SimpleParkAuto extends LinearOpMode {
     private static final double AUTO_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
 
     private static final DcMotorSimple.Direction INTAKE_DIRECTION = RobotTeleOp.INTAKE_DIRECTION;
-    private static final DcMotorSimple.Direction TRANSFER_DIRECTION = RobotTeleOp.TRANSFER_DIRECTION;
-    private static final DcMotorSimple.Direction OUTTAKE_DIRECTION = RobotTeleOp.OUTTAKE_DIRECTION;
-
-    private static final double SHOOT_VELOCITY = RobotTeleOp.OUTTAKE_VELOCITY;
-    private static final double SHOOT_TOLERANCE = RobotTeleOp.OUTTAKE_TOLERANCE;
-    private static final double SPINUP_TIMEOUT_SECONDS = RobotTeleOp.SPINUP_TIMEOUT_SECONDS;
-    private static final double FEED_TRANSFER_POWER = RobotTeleOp.FEED_POWER;
-    private static final double FEED_SECONDS = RobotTeleOp.FEED_SECONDS;
-    private static final boolean KEEP_OUTTAKE_SPINNING = RobotTeleOp.KEEP_OUTTAKE_SPINNING;
-    private static final double FEED_INTAKE_POWER = 1.0;
     private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
-    private static final double SHOT_GAP_SECONDS = 0.4;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
-
-    private static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
-    private static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
     private static final String ARRIVED = "arrived";
     private static final String TIMEOUT = "TIMEOUT";
@@ -109,9 +91,7 @@ public class SimpleParkAuto extends LinearOpMode {
     private WheelOdometry odometry;
     private final double[] wheelPowers = new double[4];
     private DcMotor intake;
-    private DcMotor transfer;
-    private DcMotorEx outtake;
-    private Servo blocker;
+    private Launcher launcher;
 
     private GoalScanner.Alliance alliance = FieldPoints.DEFAULT_ALLIANCE;
 
@@ -127,9 +107,10 @@ public class SimpleParkAuto extends LinearOpMode {
         odometry = new WheelOdometry(hardwareMap);
 
         intake = initRoller(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
-        transfer = initRoller(TRANSFER, TRANSFER_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        outtake = initOuttake(OUTTAKE, OUTTAKE_DIRECTION);
-        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
+        launcher = new Launcher(hardwareMap);
+        launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
+        launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
+        telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
         odometry.reset(startPose());
         List<Step> steps = route();
@@ -149,6 +130,7 @@ public class SimpleParkAuto extends LinearOpMode {
             }
 
             odometry.update();
+            launcher.sense();
             telemetry.addLine("Simple Park Auto - wheel encoders + IMU, no odometry");
             telemetry.addData("ALLIANCE", "%s   (gamepad1 A = BLUE, B = RED)", alliance);
             telemetry.addData("Points file", pointsFile());
@@ -187,7 +169,7 @@ public class SimpleParkAuto extends LinearOpMode {
 
         odometry.reset(startPose());
         autoTimer.reset();
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
+        launcher.update();
 
         try {
             for (int i = 0; i < steps.size(); i++) {
@@ -246,6 +228,9 @@ public class SimpleParkAuto extends LinearOpMode {
     private boolean runStep(int number, int total, Step step) {
         String label = String.format("%d/%d %s", number, total, step.name);
 
+        if (step.shots > 0) {
+            launcher.spinUp();
+        }
         String result = driveTo(label, step);
         if (!result.equals(ARRIVED) && !result.equals(TIMEOUT) && !result.equals(STALLED)) {
             stopReason = label + ": " + result;
@@ -284,6 +269,7 @@ public class SimpleParkAuto extends LinearOpMode {
 
         while (canRun()) {
             odometry.update();
+            launcher.update();
 
             double heading = odometry.heading();
             double errorX = step.to.x() - odometry.x();
@@ -381,48 +367,38 @@ public class SimpleParkAuto extends LinearOpMode {
     }
 
     private boolean shoot(String label, int shots) {
-        for (int shot = 1; shot <= shots; shot++) {
-            String phase = String.format("shot %d / %d", shot, shots);
-            setOuttakeVelocity(SHOOT_VELOCITY);
+        int detectedAtStart = launcher.shotsDetected();
+        int attemptsAtStart = launcher.shotsAttempted();
+        int maxAttempts = shots + Launcher.AUTO_EXTRA_ATTEMPTS;
+        double limitSeconds = Launcher.AUTO_SHOT_TIMEOUT_SECONDS * maxAttempts;
+        launcher.spinUp();
+        ElapsedTime shootTimer = new ElapsedTime();
 
-            ElapsedTime timer = new ElapsedTime();
-            boolean upToSpeed = false;
-            while (canRun() && timer.seconds() < SPINUP_TIMEOUT_SECONDS) {
-                odometry.update();
-                upToSpeed = Math.abs(outtake.getVelocity() - SHOOT_VELOCITY) <= SHOOT_TOLERANCE;
-                if (upToSpeed) {
-                    break;
-                }
-                showShootTelemetry(label, phase + " spinning up", timer.seconds(), SPINUP_TIMEOUT_SECONDS);
+        while (canRun()) {
+            int detected = launcher.shotsDetected() - detectedAtStart;
+            int attempts = launcher.shotsAttempted() - attemptsAtStart;
+            if (!launcher.isBusy() && (detected >= shots || attempts >= maxAttempts
+                    || !launcher.canFire() || shootTimer.seconds() >= limitSeconds)) {
+                break;
             }
-            if (!canRun()) {
-                return false;
+            if (launcher.queuedShots() == 0 && !launcher.isBusy()) {
+                launcher.requestShots(1);
             }
+            odometry.update();
+            launcher.update();
+            intake.setPower(launcher.isFeeding() ? Launcher.AUTO_FEED_INTAKE_POWER : 0.0);
 
-            blocker.setPosition(BLOCKER_OPEN_POSITION);
-            transfer.setPower(FEED_TRANSFER_POWER);
-            intake.setPower(FEED_INTAKE_POWER);
-
-            timer.reset();
-            while (canRun() && timer.seconds() < FEED_SECONDS) {
-                odometry.update();
-                setOuttakeVelocity(SHOOT_VELOCITY + RobotTeleOp.shotBoost(timer.seconds()));
-                showShootTelemetry(label, phase + (upToSpeed ? " feeding" : " feeding (spin-up timed out)"),
-                        timer.seconds(), FEED_SECONDS);
-            }
-
-            transfer.setPower(0.0);
-            intake.setPower(0.0);
-            blocker.setPosition(BLOCKER_CLOSED_POSITION);
-            setOuttakeVelocity(SHOOT_VELOCITY);
-
-            if (shot < shots && !holdFor(label, "gap between shots", SHOT_GAP_SECONDS)) {
-                return false;
-            }
+            telemetry.addData("Step", label);
+            telemetry.addData("Phase", "shooting  %d / %d detected  %d feeds", detected, shots, attempts);
+            launcher.addTelemetry(telemetry);
+            telemetry.addData("Time", "auto %.1f / %.1f s", autoTimer.seconds(), AUTO_BUDGET_SECONDS);
+            telemetry.update();
         }
 
-        if (!KEEP_OUTTAKE_SPINNING) {
-            setOuttakeVelocity(0.0);
+        launcher.cancelShots();
+        intake.setPower(0.0);
+        if (!Launcher.AUTO_KEEP_SPINNING) {
+            launcher.stop();
         }
         return canRun();
     }
@@ -438,6 +414,7 @@ public class SimpleParkAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (canRun() && timer.seconds() < seconds) {
             odometry.update();
+            launcher.update();
             telemetry.addData("Step", label);
             telemetry.addData("Phase", phase);
             telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), seconds);
@@ -445,15 +422,6 @@ public class SimpleParkAuto extends LinearOpMode {
             telemetry.update();
         }
         return canRun();
-    }
-
-    private void showShootTelemetry(String label, String phase, double time, double limit) {
-        telemetry.addData("Step", label);
-        telemetry.addData("Phase", phase);
-        telemetry.addData("Outtake", "target %.0f  measured %.0f",
-                SHOOT_VELOCITY, outtake.getVelocity());
-        telemetry.addData("Time", "%.1f / %.1f s", time, limit);
-        telemetry.update();
     }
 
     private String checkWheels(int[] ticks, int[] base, double[] since, double now) {
@@ -516,13 +484,7 @@ public class SimpleParkAuto extends LinearOpMode {
     private void stopEverything() {
         stopDrive();
         intake.setPower(0.0);
-        transfer.setPower(0.0);
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
-        setOuttakeVelocity(0.0);
-    }
-
-    private void setOuttakeVelocity(double velocity) {
-        outtake.setVelocity(velocity);
+        launcher.shutdown();
     }
 
     private DcMotor initRoller(String name, DcMotorSimple.Direction direction,
@@ -532,15 +494,6 @@ public class SimpleParkAuto extends LinearOpMode {
         motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         motor.setZeroPowerBehavior(zeroPowerBehavior);
         motor.setPower(0.0);
-        return motor;
-    }
-
-    private DcMotorEx initOuttake(String name, DcMotorSimple.Direction direction) {
-        DcMotorEx motor = hardwareMap.get(DcMotorEx.class, name);
-        motor.setDirection(direction);
-        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
-        motor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        motor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         return motor;
     }
 
