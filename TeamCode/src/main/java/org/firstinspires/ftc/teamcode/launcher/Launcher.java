@@ -23,8 +23,8 @@ public class Launcher {
 
     public enum State { OFF, SPINNING_UP, READY, FEEDING, CLOSING, RECOVERING, MANUAL_OPEN }
 
-    public static final double DEFAULT_TARGET_VELOCITY = 1250.0;
-    public static final double MIN_TARGET_VELOCITY = 1150.0;
+    public static final double DEFAULT_TARGET_VELOCITY = 1600.0;
+    public static final double MIN_TARGET_VELOCITY = 500.0;
     public static final double MAX_TARGET_VELOCITY = 2800.0;
 
     public static final ControlMode DEFAULT_CONTROL_MODE = ControlMode.CUSTOM;
@@ -50,7 +50,7 @@ public class Launcher {
     public static final double DEFAULT_READY_STABLE_SECONDS = 0.12;
     public static final double DEFAULT_SHOT_DETECT_DROP = 60.0;
     public static final int SHOT_DETECT_SAMPLES = 2;
-    public static final double DEFAULT_FEED_MAX_SECONDS = 0.5;
+    public static final double DEFAULT_FEED_MAX_SECONDS = 0.8;
     public static final double MIN_FIRE_VELOCITY = 300.0;
     public static final double TELEOP_QUEUE_EXPIRE_SECONDS = 3.0;
     public static final int BURST_SIZE = 3;
@@ -62,6 +62,11 @@ public class Launcher {
 
     public static final double AUTO_READY_TIMEOUT_SECONDS = 2.5;
     public static final double AUTO_SHOT_TIMEOUT_SECONDS = 4.0;
+    public static final double PULSE_SPINUP_SECONDS = 2.5;
+    public static final double PULSE_OPEN_SECONDS = 0.4;
+    public static final double PULSE_RECOVER_SECONDS = 1.0;
+    public static final double PULSE_TRANSFER_POWER = 1.0;
+    public static final double PULSE_INTAKE_POWER = 1.0;
     public static final boolean AUTO_KEEP_SPINNING = false;
     public static final double AUTO_FEED_INTAKE_POWER = 1.0;
     public static final double AUTO_STAGING_TRANSFER_POWER = 0.4;
@@ -157,6 +162,7 @@ public class Launcher {
     public double blockerCloseSeconds = DEFAULT_BLOCKER_CLOSE_SECONDS;
     public double feedTransferPower = DEFAULT_FEED_TRANSFER_POWER;
     public double pendingStagingPower = DEFAULT_PENDING_STAGING_POWER;
+    private boolean blockerControl = true;
     public double feedSetpointBoost = DEFAULT_FEED_SETPOINT_BOOST;
     public double feedSetpointBoostRampSeconds = DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS;
     public double readyTimeoutSeconds = Double.POSITIVE_INFINITY;
@@ -452,8 +458,11 @@ public class Launcher {
             activeShot.complete = true;
         }
 
-        if (queuedShots > 0 && now - queuedAt >= queueExpireSeconds) {
-            queuedShots = 0;
+        if (queuedShots > 0 && spinUpSeconds >= 0) {
+            double expireFrom = Math.max(queuedAt, enabledSince + spinUpSeconds);
+            if (now - expireFrom >= queueExpireSeconds) {
+                queuedShots = 0;
+            }
         }
         boolean wantShot = queuedShots > 0 || firingHeld;
         if (!wantShot) {
@@ -536,9 +545,15 @@ public class Launcher {
         }
     }
 
+    public void setBlockerControlEnabled(boolean enabled) {
+        blockerControl = enabled;
+    }
+
     private void writeMechanism() {
         boolean open = state == State.FEEDING || state == State.MANUAL_OPEN;
-        writeBlocker(open ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
+        if (blockerControl) {
+            writeBlocker(open ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
+        }
 
         double transferPower;
         if (state == State.FEEDING) {
@@ -686,11 +701,9 @@ public class Launcher {
     }
 
     private void writeBlocker(double position) {
-        if (stale(position, lastBlockerWritten, blockerWrittenAt)) {
-            blocker.setPosition(position);
-            lastBlockerWritten = position;
-            blockerWrittenAt = now;
-        }
+        blocker.setPosition(position);
+        lastBlockerWritten = position;
+        blockerWrittenAt = now;
     }
 
     private void writeTransfer(double value) {
@@ -722,6 +735,10 @@ public class Launcher {
 
     public State state() {
         return state;
+    }
+
+    public double blockerCommand() {
+        return lastBlockerWritten;
     }
 
     public boolean isReady() {

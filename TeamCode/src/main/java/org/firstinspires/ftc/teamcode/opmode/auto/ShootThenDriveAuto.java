@@ -5,11 +5,13 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.BACK_RIGHT_M
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
@@ -29,6 +31,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
     private DcMotor rightBack;
     private DcMotor intake;
     private Launcher launcher;
+    private Servo blocker;
 
     private final ElapsedTime shootTimer = new ElapsedTime();
     private String shootResult = "not started";
@@ -43,6 +46,8 @@ public class ShootThenDriveAuto extends LinearOpMode {
 
         launcher = new Launcher(hardwareMap);
         launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
+        launcher.setBlockerControlEnabled(false);
+        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
         telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
         while (opModeInInit()) {
@@ -83,37 +88,47 @@ public class ShootThenDriveAuto extends LinearOpMode {
     }
 
     private void shoot() {
-        int detectedAtStart = launcher.shotsDetected();
-        int attemptsAtStart = launcher.shotsAttempted();
-        int maxAttempts = SHOTS + Launcher.AUTO_EXTRA_ATTEMPTS;
-
-        launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
         launcher.spinUp();
+        holdBlocker(false, Launcher.PULSE_SPINUP_SECONDS, "spinning up", true, 0);
 
-        while (canShoot()) {
-            int detected = launcher.shotsDetected() - detectedAtStart;
-            int attempts = launcher.shotsAttempted() - attemptsAtStart;
-            if (!launcher.isBusy() && (detected >= SHOTS || attempts >= maxAttempts || !launcher.canFire())) {
+        int pulses = 0;
+        for (int ball = 1; ball <= SHOTS && canShoot(); ball++) {
+            holdBlocker(true, Launcher.PULSE_OPEN_SECONDS, "blocker open", false, ball);
+            pulses = ball;
+            if (ball < SHOTS) {
+                holdBlocker(false, Launcher.PULSE_RECOVER_SECONDS, "recovering", false, ball);
+            }
+        }
+        holdBlocker(false, 0.0, "done", false, pulses);
+
+        shootResult = String.format("%d / %d blocker pulses, %.1f s%s", pulses, SHOTS, shootTimer.seconds(),
+                shootTimer.seconds() >= SHOOT_TIME_LIMIT_SECONDS ? " (time limit)" : "");
+    }
+
+    private void holdBlocker(boolean open, double seconds, String phase, boolean stopWhenReady, int ball) {
+        launcher.setManualBlockerOpen(open);
+        launcher.setStagingTransferPower(open ? Launcher.PULSE_TRANSFER_POWER : 0.0);
+        intake.setPower(open ? Launcher.PULSE_INTAKE_POWER : 0.0);
+        ElapsedTime timer = new ElapsedTime();
+        do {
+            launcher.update();
+            blocker.setPosition(open ? RobotTeleOp.BLOCKER_OPEN_POSITION : RobotTeleOp.BLOCKER_CLOSED_POSITION);
+            if (stopWhenReady && launcher.isReady()) {
                 break;
             }
-            if (launcher.queuedShots() == 0 && !launcher.isBusy()) {
-                launcher.requestShots(1);
-            }
-            launcher.update();
-            intake.setPower(launcher.isFeeding() ? Launcher.AUTO_FEED_INTAKE_POWER : 0.0);
-
-            telemetry.addData("Phase", "shooting  %d / %d detected  %d attempts", detected, SHOTS, attempts);
+            telemetry.addData("Phase", "%s  ball %d / %d", phase, ball, SHOTS);
             launcher.addTelemetry(telemetry);
+            telemetry.addData("Blocker", open ? "OPEN" : "CLOSED");
             telemetry.addData("Shoot time", "%.1f / %.1f s", shootTimer.seconds(), SHOOT_TIME_LIMIT_SECONDS);
             telemetry.update();
+        } while (canShoot() && timer.seconds() < seconds);
+        if (!open) {
+            return;
         }
-
-        launcher.cancelShots();
-        int detected = launcher.shotsDetected() - detectedAtStart;
-        int attempts = launcher.shotsAttempted() - attemptsAtStart;
-        shootResult = String.format("%d / %d shots detected, %d feeds, %.1f s%s",
-                detected, SHOTS, attempts, shootTimer.seconds(),
-                shootTimer.seconds() >= SHOOT_TIME_LIMIT_SECONDS ? " (time limit)" : "");
+        launcher.setManualBlockerOpen(false);
+        launcher.setStagingTransferPower(0.0);
+        intake.setPower(0.0);
+        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
     }
 
     private boolean canShoot() {
@@ -125,6 +140,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.seconds() < DRIVE_SECONDS) {
             launcher.update();
+            blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
             telemetry.addData("Phase", "driving forward");
             telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), DRIVE_SECONDS);
             telemetry.addData("Shoot result", shootResult);

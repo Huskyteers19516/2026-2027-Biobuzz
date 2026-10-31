@@ -2,12 +2,14 @@ package org.firstinspires.ftc.teamcode.opmode.auto;
 
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.IMU_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
+import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
@@ -92,6 +94,7 @@ public class SimpleParkAuto extends LinearOpMode {
     private final double[] wheelPowers = new double[4];
     private DcMotor intake;
     private Launcher launcher;
+    private Servo blocker;
 
     private GoalScanner.Alliance alliance = FieldPoints.DEFAULT_ALLIANCE;
 
@@ -109,6 +112,8 @@ public class SimpleParkAuto extends LinearOpMode {
         intake = initRoller(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
         launcher = new Launcher(hardwareMap);
         launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
+        launcher.setBlockerControlEnabled(false);
+        blocker = hardwareMap.get(Servo.class, OUTTAKE_BLOCKER);
         launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
         telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
 
@@ -170,6 +175,7 @@ public class SimpleParkAuto extends LinearOpMode {
         odometry.reset(startPose());
         autoTimer.reset();
         launcher.update();
+        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
 
         try {
             for (int i = 0; i < steps.size(); i++) {
@@ -367,39 +373,46 @@ public class SimpleParkAuto extends LinearOpMode {
     }
 
     private boolean shoot(String label, int shots) {
-        int detectedAtStart = launcher.shotsDetected();
-        int attemptsAtStart = launcher.shotsAttempted();
-        int maxAttempts = shots + Launcher.AUTO_EXTRA_ATTEMPTS;
-        double limitSeconds = Launcher.AUTO_SHOT_TIMEOUT_SECONDS * maxAttempts;
         launcher.spinUp();
-        ElapsedTime shootTimer = new ElapsedTime();
+        if (!holdBlocker(label, false, Launcher.PULSE_SPINUP_SECONDS, "spinning up", true)) {
+            return false;
+        }
+        for (int ball = 1; ball <= shots; ball++) {
+            if (!holdBlocker(label, true, Launcher.PULSE_OPEN_SECONDS, String.format("blocker open %d / %d", ball, shots), false)) {
+                return false;
+            }
+            if (ball < shots && !holdBlocker(label, false, Launcher.PULSE_RECOVER_SECONDS, "recovering", false)) {
+                return false;
+            }
+        }
+        if (!Launcher.AUTO_KEEP_SPINNING) {
+            launcher.stop();
+        }
+        return canRun();
+    }
 
-        while (canRun()) {
-            int detected = launcher.shotsDetected() - detectedAtStart;
-            int attempts = launcher.shotsAttempted() - attemptsAtStart;
-            if (!launcher.isBusy() && (detected >= shots || attempts >= maxAttempts
-                    || !launcher.canFire() || shootTimer.seconds() >= limitSeconds)) {
-                break;
-            }
-            if (launcher.queuedShots() == 0 && !launcher.isBusy()) {
-                launcher.requestShots(1);
-            }
+    private boolean holdBlocker(String label, boolean open, double seconds, String phase, boolean stopWhenReady) {
+        launcher.setManualBlockerOpen(open);
+        launcher.setStagingTransferPower(open ? Launcher.PULSE_TRANSFER_POWER : 0.0);
+        intake.setPower(open ? Launcher.PULSE_INTAKE_POWER : 0.0);
+        ElapsedTime timer = new ElapsedTime();
+        while (canRun() && timer.seconds() < seconds) {
             odometry.update();
             launcher.update();
-            intake.setPower(launcher.isFeeding() ? Launcher.AUTO_FEED_INTAKE_POWER : 0.0);
-
+            blocker.setPosition(open ? RobotTeleOp.BLOCKER_OPEN_POSITION : RobotTeleOp.BLOCKER_CLOSED_POSITION);
+            if (stopWhenReady && launcher.isReady()) {
+                break;
+            }
             telemetry.addData("Step", label);
-            telemetry.addData("Phase", "shooting  %d / %d detected  %d feeds", detected, shots, attempts);
+            telemetry.addData("Phase", phase);
             launcher.addTelemetry(telemetry);
             telemetry.addData("Time", "auto %.1f / %.1f s", autoTimer.seconds(), AUTO_BUDGET_SECONDS);
             telemetry.update();
         }
-
-        launcher.cancelShots();
+        launcher.setManualBlockerOpen(false);
+        launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
         intake.setPower(0.0);
-        if (!Launcher.AUTO_KEEP_SPINNING) {
-            launcher.stop();
-        }
+        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
         return canRun();
     }
 

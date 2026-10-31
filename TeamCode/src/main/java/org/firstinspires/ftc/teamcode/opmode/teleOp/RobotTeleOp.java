@@ -33,12 +33,17 @@ public class RobotTeleOp extends OpMode {
     private static final double OUTTAKE_SMALL_STEP = 100.0;
     private static final double OUTTAKE_BIG_STEP = 500.0;
     private static final int READY_RUMBLE_MS = 200;
+    private static final double BLOCKER_BIG_STEP = 0.05;
+    private static final double BLOCKER_SMALL_STEP = 0.01;
 
     private static final double SERVO_RANGE_DEGREES = 270.0;
     public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
     public static final int FLOWER_START_INDEX = 0;
-    public static final double BLOCKER_CLOSED_POSITION = 0.5;
-    private static final double BLOCKER_TURN_DEGREES = -50.0;
+    private static final double BLOCKER_CENTER_POSITION = 0.5;
+    private static final double BLOCKER_START_TURN_DEGREES = -135.0;
+    public static final double BLOCKER_CLOSED_POSITION =
+            Range.clip(BLOCKER_CENTER_POSITION + BLOCKER_START_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
+    private static final double BLOCKER_TURN_DEGREES = 50.0;
     public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
@@ -54,6 +59,7 @@ public class RobotTeleOp extends OpMode {
     private DcMotor rightBack;
     private DcMotor intake;
     private Servo flowerIntake;
+    private Servo outtakeBlocker;
     private Launcher launcher;
 
     private boolean intakeOn = false;
@@ -64,6 +70,8 @@ public class RobotTeleOp extends OpMode {
     private boolean leftTriggerLatched = false;
     private boolean rightTriggerLatched = false;
     private boolean wasReady = false;
+    private double blockerPosition = BLOCKER_CLOSED_POSITION;
+    private boolean singleTriggerLatched = false;
 
     @Override
     public void init() {
@@ -75,6 +83,8 @@ public class RobotTeleOp extends OpMode {
         flowerIntake = hardwareMap.get(Servo.class, Constants.FLOWER_INTAKE);
         launcher = new Launcher(hardwareMap);
         launcher.setQueueExpireSeconds(Launcher.TELEOP_QUEUE_EXPIRE_SECONDS);
+        launcher.setBlockerControlEnabled(false);
+        outtakeBlocker = hardwareMap.get(Servo.class, Constants.OUTTAKE_BLOCKER);
 
         leftFront.setDirection(LEFT_SIDE_DIRECTION);
         leftBack.setDirection(LEFT_SIDE_DIRECTION);
@@ -115,6 +125,9 @@ public class RobotTeleOp extends OpMode {
         leftTriggerLatched = false;
         rightTriggerLatched = false;
         wasReady = false;
+        singleTriggerLatched = false;
+        blockerPosition = BLOCKER_CLOSED_POSITION;
+        outtakeBlocker.setPosition(blockerPosition);
         launcher.setTargetVelocity(Launcher.DEFAULT_TARGET_VELOCITY);
         flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
         launcher.update();
@@ -136,10 +149,12 @@ public class RobotTeleOp extends OpMode {
         double leftTriggerValue = gamepad1.left_trigger;
         boolean intakeTogglePressed = triggerRisingEdge(leftTriggerValue, leftTriggerLatched);
         leftTriggerLatched = updateTriggerLatch(leftTriggerValue, leftTriggerLatched);
-        double rightTriggerValue = gamepad1.right_trigger;
+        double rightTriggerValue = gamepad2.right_trigger;
         boolean firePressed = triggerRisingEdge(rightTriggerValue, rightTriggerLatched);
         rightTriggerLatched = updateTriggerLatch(rightTriggerValue, rightTriggerLatched);
-        boolean singleShotPressed = gamepad1.rightBumperWasPressed();
+        double singleTriggerValue = gamepad2.left_trigger;
+        boolean singleShotPressed = triggerRisingEdge(singleTriggerValue, singleTriggerLatched);
+        singleTriggerLatched = updateTriggerLatch(singleTriggerValue, singleTriggerLatched);
         boolean reversing = gamepad1.left_bumper;
 
         if (slowTogglePressed) {
@@ -185,6 +200,19 @@ public class RobotTeleOp extends OpMode {
                 launcher.requestShots(1);
             }
         }
+        if (gamepad1.dpadUpWasPressed()) {
+            blockerPosition += BLOCKER_BIG_STEP;
+        }
+        if (gamepad1.dpadDownWasPressed()) {
+            blockerPosition -= BLOCKER_BIG_STEP;
+        }
+        if (gamepad1.dpadRightWasPressed()) {
+            blockerPosition += BLOCKER_SMALL_STEP;
+        }
+        if (gamepad1.dpadLeftWasPressed()) {
+            blockerPosition -= BLOCKER_SMALL_STEP;
+        }
+        blockerPosition = Range.clip(blockerPosition, 0.0, 1.0);
         launcher.setManualBlockerOpen(gamepad2.x);
 
         driveMecanum();
@@ -195,18 +223,23 @@ public class RobotTeleOp extends OpMode {
         } else {
             intakePower = intakeOn ? TELEOP_INTAKE_POWER : 0.0;
         }
+        if (!reversing && (launcher.isFeeding() || gamepad2.x)) {
+            intakePower = INTAKE_POWER;
+        }
         intake.setPower(intakePower);
 
         double transferPower;
         if (reversing) {
             transferPower = -TRANSFER_POWER;
         } else {
-            transferPower = (intakeOn || transferLatched) ? TRANSFER_POWER : 0.0;
+            transferPower = (intakeOn || transferLatched || gamepad2.x) ? TRANSFER_POWER : 0.0;
         }
         launcher.setStagingTransferPower(transferPower);
 
         flowerIntake.setPosition(FLOWER_POSITIONS[flowerIndex]);
         launcher.update();
+        boolean autoOpen = launcher.isFeeding() || gamepad2.x;
+        outtakeBlocker.setPosition(autoOpen ? BLOCKER_OPEN_POSITION : blockerPosition);
 
         boolean ready = launcher.isReady();
         if (ready && !wasReady) {
@@ -266,7 +299,10 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Transfer", "latch %s  staging power %.2f",
                 transferLatched ? "ON" : "OFF", transferPower);
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
-        telemetry.addLine("gp1 RT fire 3   gp1 RB fire 1   gp1 LB cancel   gp2 Y launcher   gp2 X hold = open blocker");
+        telemetry.addData("Blocker", "pos %.2f  %s  (gp1 dpad up/down +-0.05, right/left +-0.01)",
+                outtakeBlocker.getPosition(),
+                launcher.isFeeding() || gamepad2.x ? "AUTO OPEN" : "manual");
+        telemetry.addLine("gp2 RT fire 3   gp2 LT fire 1   gp1 LB cancel   gp2 Y launcher   gp2 X hold = open blocker");
     }
 
     private boolean triggerRisingEdge(double triggerValue, boolean latched) {
