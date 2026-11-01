@@ -32,6 +32,7 @@ public class Constants {
     public static final String OUTTAKE_BLOCKER = "outtake_blocker";
     public static final String WEBCAM = "Webcam 1";
     public static final String IMU_NAME = "imu";
+    public static final String COLOR_SENSOR = "color_sensor";
 
     private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.REVERSE;
     private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.REVERSE;
