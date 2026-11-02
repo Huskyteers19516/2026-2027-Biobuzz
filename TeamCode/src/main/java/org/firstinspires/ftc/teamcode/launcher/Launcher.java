@@ -204,11 +204,9 @@ public class Launcher {
     private int burstFired = 0;
     private double lastPowerWritten = Double.NaN;
     private double lastVelocityWritten = Double.NaN;
-    private double lastBlockerWritten = Double.NaN;
     private double lastTransferWritten = Double.NaN;
     private double powerWrittenAt = -1.0;
     private double velocityWrittenAt = -1.0;
-    private double blockerWrittenAt = -1.0;
     private double transferWrittenAt = -1.0;
 
     private int shotsAttempted = 0;
@@ -312,10 +310,6 @@ public class Launcher {
         } else {
             spinUp();
         }
-    }
-
-    public boolean isEnabled() {
-        return enabled;
     }
 
     public void requestShots(int count) {
@@ -702,8 +696,6 @@ public class Launcher {
 
     private void writeBlocker(double position) {
         blocker.setPosition(position);
-        lastBlockerWritten = position;
-        blockerWrittenAt = now;
     }
 
     private void writeTransfer(double value) {
@@ -726,19 +718,13 @@ public class Launcher {
         lastPowerWritten = 0.0;
         lastVelocityWritten = 0.0;
         lastTransferWritten = 0.0;
-        lastBlockerWritten = BLOCKER_CLOSED_POSITION;
         powerWrittenAt = now;
         velocityWrittenAt = now;
         transferWrittenAt = now;
-        blockerWrittenAt = now;
     }
 
     public State state() {
         return state;
-    }
-
-    public double blockerCommand() {
-        return lastBlockerWritten;
     }
 
     public boolean isReady() {
@@ -751,10 +737,6 @@ public class Launcher {
 
     public boolean isBusy() {
         return state == State.FEEDING || state == State.CLOSING;
-    }
-
-    public boolean isBoosting() {
-        return boosting;
     }
 
     public boolean encoderFault() {

@@ -25,7 +25,4 @@ public class FieldPointsBlue {
 
 
     public static final Pose PARK_POSE = new Pose(131.1, 36.5, Math.toRadians(270.0));
-
-    public static final double AIM_AT_SHOOT_POSE_1 = 0.50;
-    public static final double AIM_AT_SHOOT_POSE_2 = 0.55;
 }

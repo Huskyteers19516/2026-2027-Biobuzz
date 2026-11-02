@@ -27,7 +27,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot preload at shooting point 1")
                 .from(FieldPoints.START_POSE)
                 .to(FieldPoints.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1, FieldPoints.AIM_AT_SHOOT_POSE_1));
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
 
         steps.add(step("Move to flower 1 start")
                 .from(FieldPoints.SHOOT_POSE_1)
@@ -40,7 +40,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 1 at shooting point 1")
                 .from(FieldPoints.FLOWER_1_END)
                 .to(FieldPoints.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_1));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 2 start")
                 .from(FieldPoints.SHOOT_POSE_1)
@@ -53,7 +53,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 2 at shooting point 2")
                 .from(FieldPoints.FLOWER_2_END)
                 .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 3 start")
                 .from(FieldPoints.SHOOT_POSE_2)
@@ -66,7 +66,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 3 at shooting point 2")
                 .from(FieldPoints.FLOWER_3_END)
                 .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPoints.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 4 start")
                 .from(FieldPoints.SHOOT_POSE_2)
@@ -79,7 +79,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 4 at shooting point 2")
                 .from(FieldPoints.FLOWER_4_END)
                 .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2, FieldPoints.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2));
 
         steps.add(step("Park")
                 .from(FieldPoints.SHOOT_POSE_2)
@@ -94,7 +94,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot preload at shooting point 1")
                 .from(FieldPointsBlue.START_POSE)
                 .to(FieldPointsBlue.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1, FieldPointsBlue.AIM_AT_SHOOT_POSE_1));
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
 
         steps.add(step("Move to flower 1 start")
                 .from(FieldPointsBlue.SHOOT_POSE_1)
@@ -107,7 +107,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 1 at shooting point 1")
                 .from(FieldPointsBlue.FLOWER_1_END)
                 .to(FieldPointsBlue.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_1));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 2 start")
                 .from(FieldPointsBlue.SHOOT_POSE_1)
@@ -120,7 +120,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 2 at shooting point 2")
                 .from(FieldPointsBlue.FLOWER_2_END)
                 .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 3 start")
                 .from(FieldPointsBlue.SHOOT_POSE_2)
@@ -133,7 +133,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 3 at shooting point 2")
                 .from(FieldPointsBlue.FLOWER_3_END)
                 .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(step("Move to flower 4 start")
                 .from(FieldPointsBlue.SHOOT_POSE_2)
@@ -146,7 +146,7 @@ public class MatchAuto extends LinearOpMode {
         steps.add(step("Shoot flower 4 at shooting point 2")
                 .from(FieldPointsBlue.FLOWER_4_END)
                 .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2, FieldPointsBlue.AIM_AT_SHOOT_POSE_2));
+                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2));
 
         steps.add(step("Park")
                 .from(FieldPointsBlue.SHOOT_POSE_2)
@@ -165,14 +165,7 @@ public class MatchAuto extends LinearOpMode {
     private static final double MIN_PATH_LENGTH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
     private static final double DEFAULT_PATH_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
 
-    private static final double AIM_DEFAULT_POSITION = RobotTeleOp.AIM_START_POSITION;
-
     private static final boolean VISION_AIMING_ENABLED = FieldPoints.VISION_AIMING_ENABLED;
-
-    private static final double RANGE_NEAR = FieldPoints.RANGE_NEAR_INCHES;
-    private static final double RANGE_FAR = FieldPoints.RANGE_FAR_INCHES;
-    private static final double AIM_AT_NEAR = FieldPoints.AIM_AT_NEAR;
-    private static final double AIM_AT_FAR = FieldPoints.AIM_AT_FAR;
 
     private static final double AIM_BEARING_TOLERANCE_DEGREES = FieldPoints.AIM_BEARING_TOLERANCE_DEGREES;
     private static final double AIM_BEARING_MAX_CORRECTION_DEGREES = FieldPoints.AIM_BEARING_MAX_CORRECTION_DEGREES;
@@ -190,10 +183,6 @@ public class MatchAuto extends LinearOpMode {
     private GoalScanner scanner;
     private DcMotor intake;
     private Launcher launcher;
-    private DcMotor LeftFront;
-    private DcMotor Leftback;
-    private DcMotor riightfront;
-    private DcMotor rightBack;
 
     private final ElapsedTime runtime = new ElapsedTime();
 
@@ -209,7 +198,6 @@ public class MatchAuto extends LinearOpMode {
     private double aimBearingBefore = 0.0;
     private double aimBearingAfter = 0.0;
     private long aimSightingAgeMs = -1L;
-    private double aimValueUsed = AIM_DEFAULT_POSITION;
     private boolean aimUsedFallback = true;
     private String aimNote = "not aimed yet";
     private String aimTurnResult = "no turn yet";
@@ -568,11 +556,11 @@ public class MatchAuto extends LinearOpMode {
         aimTurnPasses = 0;
 
         if (!VISION_AIMING_ENABLED) {
-            commitFallback(step, "vision aiming disabled in FieldPoints");
+            commitFallback("vision aiming disabled in FieldPoints");
             return;
         }
         if (!scanner.isAvailable()) {
-            commitFallback(step, "no camera: " + scanner.fault());
+            commitFallback("no camera: " + scanner.fault());
             return;
         }
 
@@ -580,7 +568,7 @@ public class MatchAuto extends LinearOpMode {
         GoalScanner.Sighting target = scanFor(scanLimit, index, total, step, shot, shots);
 
         if (target == null) {
-            commitFallback(step, String.format("no usable %s / %s cluster (>= %d%%, age <= %d ms) in %.2f s",
+            commitFallback(String.format("no usable %s / %s cluster (>= %d%%, age <= %d ms) in %.2f s",
                     alliance.firstCluster, alliance.secondCluster,
                     GoalScanner.MIN_PERCENT_CLUSTER_FOUND, GoalScanner.SIGHTING_FRESHNESS_MS, scanLimit));
             return;
@@ -641,15 +629,13 @@ public class MatchAuto extends LinearOpMode {
         }
 
         aimUsedFallback = false;
-        aimValueUsed = aimForRange(aimRange);
-        aimNote = String.format("%s %d%% range %.1f in -> aim %.3f (bearing %.1f -> %.1f deg)",
-                aimCluster, aimPercent, aimRange, aimValueUsed, aimBearingBefore, aimBearingAfter);
+        aimNote = String.format("%s %d%% range %.1f in (bearing %.1f -> %.1f deg)",
+                aimCluster, aimPercent, aimRange, aimBearingBefore, aimBearingAfter);
     }
 
-    private void commitFallback(Step step, String reason) {
+    private void commitFallback(String reason) {
         aimUsedFallback = true;
-        aimValueUsed = step.aim;
-        aimNote = "FALLBACK static aim " + String.format("%.3f", step.aim) + " - " + reason;
+        aimNote = "NO VISION TURN - " + reason;
     }
 
     private double remainingAimSeconds(ElapsedTime aimTimer) {
@@ -750,18 +736,6 @@ public class MatchAuto extends LinearOpMode {
         return settled;
     }
 
-    private double aimForRange(double range) {
-        double span = RANGE_FAR - RANGE_NEAR;
-        double aim;
-        if (Math.abs(span) < 1e-6) {
-            aim = AIM_AT_NEAR;
-        } else {
-            double t = Range.clip((range - RANGE_NEAR) / span, 0.0, 1.0);
-            aim = AIM_AT_NEAR + t * (AIM_AT_FAR - AIM_AT_NEAR);
-        }
-        return Range.clip(aim, RobotTeleOp.AIM_MIN_POSITION, RobotTeleOp.AIM_MAX_POSITION);
-    }
-
     private double normalizeRadians(double radians) {
         double value = radians;
         while (value > Math.PI) {
@@ -803,8 +777,7 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private void addAimTelemetry() {
-        telemetry.addData("Aim source", aimUsedFallback ? "STATIC FALLBACK" : "VISION");
-        telemetry.addData("Aim value", "%.3f", aimValueUsed);
+        telemetry.addData("Aim source", aimUsedFallback ? "NO VISION TURN" : "VISION");
         telemetry.addData("Aim cluster", "%s  %d%%", aimCluster, aimPercent);
         telemetry.addData("Aim range", "%.1f in", aimRange);
         telemetry.addData("Aim bearing", "before %.1f deg -> after %.1f deg",
@@ -848,7 +821,6 @@ public class MatchAuto extends LinearOpMode {
         Pose to;
         final List<Pose> controls = new ArrayList<>();
         int shots = 0;
-        double aim = AIM_DEFAULT_POSITION;
         double intakeSeconds = 0.0;
         boolean intakeWhileDriving = false;
         double pauseSeconds = 0.0;
@@ -873,9 +845,8 @@ public class MatchAuto extends LinearOpMode {
             return this;
         }
 
-        Step shoot(int count, double staticAim) {
+        Step shoot(int count) {
             shots = count;
-            aim = staticAim;
             return this;
         }
 

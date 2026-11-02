@@ -19,7 +19,6 @@ public class RobotTeleOp extends OpMode {
     public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.REVERSE;
 
-    private static final double DRIVE_POWER_SCALE = 1.0;
     private static final double SLOW_SCALE = 0.35;
     private static final double STICK_DEADZONE = 0.05;
     private static final double TRIGGER_PRESS_THRESHOLD = 0.5;
@@ -47,12 +46,6 @@ public class RobotTeleOp extends OpMode {
     public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
-    public static final double AIM_START_POSITION = 0.50;
-    public static final double AIM_MIN_POSITION = 0.00;
-    public static final double AIM_MAX_POSITION = 1.00;
-
-    private static final boolean SLOW_MODE_DEFAULT = false;
-
     private DcMotor leftFront;
     private DcMotor leftBack;
     private DcMotor rightFront;
@@ -65,7 +58,7 @@ public class RobotTeleOp extends OpMode {
     private boolean intakeOn = false;
     private boolean transferLatched = false;
     private int flowerIndex = FLOWER_START_INDEX;
-    private boolean slowMode = SLOW_MODE_DEFAULT;
+    private boolean slowMode = false;
 
     private boolean leftTriggerLatched = false;
     private boolean rightTriggerLatched = false;
@@ -281,7 +274,7 @@ public class RobotTeleOp extends OpMode {
             rightBackPower /= max;
         }
 
-        double scale = DRIVE_POWER_SCALE * (slowMode ? SLOW_SCALE : 1.0);
+        double scale = slowMode ? SLOW_SCALE : 1.0;
 
         leftFront.setPower(leftFrontPower * scale);
         leftBack.setPower(leftBackPower * scale);

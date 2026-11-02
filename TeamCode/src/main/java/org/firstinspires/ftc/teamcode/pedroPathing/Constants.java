@@ -43,7 +43,6 @@ public class Constants {
     private static final double POWER_THRESHOLD = 0.01;
 
     public static final String PINPOINT_NAME = "pinpoint_left";
-    public static final String SECONDARY_PINPOINT_NAME = "pinpoint_right";
 
     private static final double PINPOINT_X_POD_OFFSET_MM = -84.0;
     private static final double PINPOINT_Y_POD_OFFSET_MM = -168.0;

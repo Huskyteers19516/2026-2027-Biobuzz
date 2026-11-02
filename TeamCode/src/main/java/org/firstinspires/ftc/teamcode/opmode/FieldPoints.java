@@ -26,17 +26,9 @@ public class FieldPoints {
 
     public static final Pose PARK_POSE = new Pose(9.5, 105.0, Math.toRadians(90.0));
 
-    public static final double AIM_AT_SHOOT_POSE_1 = 0.50;
-    public static final double AIM_AT_SHOOT_POSE_2 = 0.55;
-
     public static final GoalScanner.Alliance DEFAULT_ALLIANCE = GoalScanner.Alliance.RED;
 
     public static final boolean VISION_AIMING_ENABLED = true;
-
-    public static final double RANGE_NEAR_INCHES = 40.0;
-    public static final double RANGE_FAR_INCHES = 100.0;
-    public static final double AIM_AT_NEAR = 0.45;
-    public static final double AIM_AT_FAR = 0.65;
 
     public static final double AIM_BEARING_TOLERANCE_DEGREES = 2.5;
     public static final double AIM_BEARING_MAX_CORRECTION_DEGREES = 30.0;
@@ -57,8 +49,4 @@ public class FieldPoints {
     public static final double AUTONOMOUS_BUDGET_SECONDS = 28.0;
 
     public static final double MIN_PATH_LENGTH_INCHES = 0.5;
-
-    public static boolean GOAL_ONE = false;
-
-    public static double sweepTime = 5;
 }
