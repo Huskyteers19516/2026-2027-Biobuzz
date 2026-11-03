@@ -14,7 +14,7 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.IMU;
 
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
-import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 public class WheelOdometry {
 
@@ -52,10 +52,10 @@ public class WheelOdometry {
     private double rawStrafe;
 
     public WheelOdometry(HardwareMap hardwareMap) {
-        leftFront = initDrive(hardwareMap, FRONT_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION);
-        leftBack = initDrive(hardwareMap, BACK_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION);
-        rightFront = initDrive(hardwareMap, FRONT_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION);
-        rightBack = initDrive(hardwareMap, BACK_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION);
+        leftFront = initDrive(hardwareMap, FRONT_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION);
+        leftBack = initDrive(hardwareMap, BACK_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION);
+        rightFront = initDrive(hardwareMap, FRONT_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION);
+        rightBack = initDrive(hardwareMap, BACK_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION);
 
         imu = hardwareMap.get(IMU.class, IMU_NAME);
         imuReady = imu.initialize(new IMU.Parameters(

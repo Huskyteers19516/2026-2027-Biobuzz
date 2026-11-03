@@ -125,7 +125,7 @@ public class LauncherStabilityTest extends OpMode {
         launcher = new Launcher(hardwareMap);
         launcher.setQueueExpireSeconds(Launcher.TELEOP_QUEUE_EXPIRE_SECONDS);
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
-        intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
+        intake.setDirection(Constants.INTAKE_DIRECTION);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         intake.setPower(0.0);

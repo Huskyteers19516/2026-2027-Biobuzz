@@ -15,7 +15,8 @@ import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.ElapsedTime;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
-import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
+import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @Autonomous(name = "Shoot 3 Then Drive", group = "Meet0")
 public class ShootThenDriveAuto extends LinearOpMode {
@@ -38,11 +39,12 @@ public class ShootThenDriveAuto extends LinearOpMode {
 
     @Override
     public void runOpMode() {
-        leftFront = initMotor(FRONT_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        leftBack = initMotor(BACK_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
-        intake = initMotor(INTAKE, RobotTeleOp.INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
+        PoseHandoff.clear();
+        leftFront = initMotor(FRONT_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
+        leftBack = initMotor(BACK_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
+        rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
+        rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION, DcMotor.ZeroPowerBehavior.BRAKE);
+        intake = initMotor(INTAKE, Constants.INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
 
         launcher = new Launcher(hardwareMap);
         launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
@@ -112,7 +114,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         do {
             launcher.update();
-            blocker.setPosition(open ? RobotTeleOp.BLOCKER_OPEN_POSITION : RobotTeleOp.BLOCKER_CLOSED_POSITION);
+            blocker.setPosition(open ? Constants.BLOCKER_OPEN_POSITION : Constants.BLOCKER_CLOSED_POSITION);
             if (stopWhenReady && launcher.isReady()) {
                 break;
             }
@@ -128,7 +130,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         launcher.setManualBlockerOpen(false);
         launcher.setStagingTransferPower(0.0);
         intake.setPower(0.0);
-        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
+        blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
     }
 
     private boolean canShoot() {
@@ -140,7 +142,7 @@ public class ShootThenDriveAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (opModeIsActive() && timer.seconds() < DRIVE_SECONDS) {
             launcher.update();
-            blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
+            blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
             telemetry.addData("Phase", "driving forward");
             telemetry.addData("Time", "%.1f / %.1f s", timer.seconds(), DRIVE_SECONDS);
             telemetry.addData("Shoot result", shootResult);

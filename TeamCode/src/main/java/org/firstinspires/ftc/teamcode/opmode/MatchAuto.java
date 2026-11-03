@@ -4,6 +4,7 @@ import com.pedropathing.api.Paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
+import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -11,7 +12,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
-import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
+import org.firstinspires.ftc.teamcode.odometry.VirtualPinpoint;
+import org.firstinspires.ftc.teamcode.odometry.VirtualPinpointLocalizer;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
@@ -155,8 +157,6 @@ public class MatchAuto extends LinearOpMode {
         return steps;
     }
 
-    private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
-
     private static final double MAX_ACTION_SECONDS = 8.0;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
     private static final double TURN_TOLERANCE_DEGREES = 2.0;
@@ -200,11 +200,13 @@ public class MatchAuto extends LinearOpMode {
     private long aimSightingAgeMs = -1L;
     private boolean aimUsedFallback = true;
     private String aimNote = "not aimed yet";
+    private String poseAimNote = "not aimed yet";
     private String aimTurnResult = "no turn yet";
     private int aimTurnPasses = 0;
 
     @Override
     public void runOpMode() {
+        PoseHandoff.clear();
         checkRoute("Red", redRoute());
         checkRoute("Blue", blueRoute());
 
@@ -213,7 +215,7 @@ public class MatchAuto extends LinearOpMode {
 
 
         intake = hardwareMap.get(DcMotor.class, Constants.INTAKE);
-        intake.setDirection(RobotTeleOp.INTAKE_DIRECTION);
+        intake.setDirection(Constants.INTAKE_DIRECTION);
         intake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         intake.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
@@ -250,7 +252,8 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.addData("Budget", "%.1f s", AUTONOMOUS_BUDGET_SECONDS);
                 telemetry.addData("Start pose", formatPose(startPose()));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
-                telemetry.addData("Localizer", Constants.PINPOINT_NAME);
+                telemetry.addData("Localizer", Constants.localizerName());
+                addOdometryTelemetry(true);
                 launcher.sense();
 
                 telemetry.addLine();
@@ -311,6 +314,7 @@ public class MatchAuto extends LinearOpMode {
                 }
             } finally {
                 stopAll();
+                PoseHandoff.save(follower.pose(), alliance);
             }
 
             telemetry.addData("Status", "Finished");
@@ -320,6 +324,7 @@ public class MatchAuto extends LinearOpMode {
             telemetry.addData("Final pose", formatPose(follower.pose()));
             telemetry.addData("Last path", lastPathResult);
             telemetry.addData("Last shot", lastShotResult);
+            telemetry.addData("Last pose aim", poseAimNote);
             telemetry.addData("Last aim", aimNote);
             telemetry.addData("Vision frames", "%d updates, %d with a cluster",
                     scanner.updateCount(), scanner.clusterFrameCount());
@@ -338,7 +343,7 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private Pose startPose() {
-        return isBlue() ? FieldPointsBlue.START_POSE : FieldPoints.START_POSE;
+        return GoalAim.startPose(alliance);
     }
 
     private boolean pointsConfirmed() {
@@ -429,7 +434,7 @@ public class MatchAuto extends LinearOpMode {
         follower.follow(path.linear(start, step.to));
 
         if (step.intakeWhileDriving) {
-            intake.setPower(INTAKE_POWER);
+            intake.setPower(Constants.INTAKE_POWER);
         }
 
         ElapsedTime pathTimer = new ElapsedTime();
@@ -459,7 +464,7 @@ public class MatchAuto extends LinearOpMode {
         follower.hold(step.to);
 
         if (step.intakeWhileDriving) {
-            intake.setPower(INTAKE_POWER);
+            intake.setPower(Constants.INTAKE_POWER);
         }
 
         ElapsedTime turnTimer = new ElapsedTime();
@@ -498,6 +503,7 @@ public class MatchAuto extends LinearOpMode {
         }
 
         launcher.spinUp();
+        turnToGoal(index, total, step);
         int detected = 0;
         for (int shot = 0; shot < shots && canKeepRunning(); shot++) {
             scanAimAndCommit(index, total, step, shot, shots);
@@ -541,6 +547,39 @@ public class MatchAuto extends LinearOpMode {
         launcher.cancelShots();
         intake.setPower(0.0);
         return launcher.shotsDetected() > detectedBefore;
+    }
+
+    private void turnToGoal(int index, int total, Step step) {
+        if (!GoalAim.goalsConfirmed(alliance)) {
+            poseAimNote = alliance + " goal points not confirmed - kept path heading and default velocity";
+            return;
+        }
+        Pose here = follower.pose();
+        GoalAim.Solution aim = GoalAim.solve(alliance, here);
+        launcher.setTargetVelocity(aim.velocity);
+        follower.hold(here.withHeading(aim.heading));
+
+        ElapsedTime turnTimer = new ElapsedTime();
+        boolean settled = false;
+        while (canKeepRunning() && turnTimer.seconds() < AIM_TURN_TIMEOUT_SECONDS) {
+            tick();
+            double errorDegrees = Math.toDegrees(aim.headingError(follower.pose()));
+            if (Math.abs(errorDegrees) <= AIM_HEADING_SETTLE_TOLERANCE_DEGREES) {
+                settled = true;
+                break;
+            }
+            addStepTelemetry(index, total, step, "pose aim turn");
+            telemetry.addData("Goal", aim.summary(follower.pose()));
+            telemetry.addData("Velocity", "%.0f for %.1f in", aim.velocity, aim.distance);
+            telemetry.addData("Turn time", "%.2f / %.2f s", turnTimer.seconds(), AIM_TURN_TIMEOUT_SECONDS);
+            telemetry.update();
+        }
+
+        poseAimNote = String.format("%s  %.1f in -> %.0f ticks/s  %s%s",
+                aim.goalName, aim.distance, aim.velocity,
+                settled ? "aligned" : String.format("TURN TIMEOUT (%.1f deg off)",
+                        Math.toDegrees(aim.headingError(follower.pose()))),
+                aim.inEntryAngle ? "" : "  BAD ENTRY ANGLE");
     }
 
     private void scanAimAndCommit(int index, int total, Step step, int shot, int shots) {
@@ -751,7 +790,7 @@ public class MatchAuto extends LinearOpMode {
         double seconds = Math.min(step.intakeSeconds, MAX_ACTION_SECONDS);
         boolean clamped = step.intakeSeconds > MAX_ACTION_SECONDS;
 
-        intake.setPower(INTAKE_POWER);
+        intake.setPower(Constants.INTAKE_POWER);
 
         ElapsedTime intakeTimer = new ElapsedTime();
         while (canKeepRunning() && intakeTimer.seconds() < seconds) {
@@ -777,6 +816,7 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private void addAimTelemetry() {
+        telemetry.addData("Pose aim", poseAimNote);
         telemetry.addData("Aim source", aimUsedFallback ? "NO VISION TURN" : "VISION");
         telemetry.addData("Aim cluster", "%s  %d%%", aimCluster, aimPercent);
         telemetry.addData("Aim range", "%.1f in", aimRange);
@@ -798,6 +838,22 @@ public class MatchAuto extends LinearOpMode {
         telemetry.addData("Current", formatPose(pose));
         telemetry.addData("Distance to target", "%.1f in", step.to.distance(pose));
         telemetry.addData("Runtime", "%.1f / %.1f s", runtime.seconds(), AUTONOMOUS_BUDGET_SECONDS);
+        addOdometryTelemetry(false);
+    }
+
+    private void addOdometryTelemetry(boolean initPhase) {
+        if (!(follower.localizer instanceof VirtualPinpointLocalizer)) {
+            return;
+        }
+        VirtualPinpoint pinpoint = ((VirtualPinpointLocalizer) follower.localizer).pinpoint();
+        GoBildaPinpointDriver.DeviceStatus status = pinpoint.getDeviceStatus();
+        if (status != GoBildaPinpointDriver.DeviceStatus.READY) {
+            telemetry.addLine("!! ODOMETRY " + status + " - " + VirtualPinpoint.statusAdvice(status));
+        }
+        telemetry.addData("Odometry", "%s  X %d  Y %d", status, pinpoint.getEncoderX(), pinpoint.getEncoderY());
+        if (initPhase) {
+            telemetry.addLine("Push the robot forward and sideways by hand: X and Y ticks must both change");
+        }
     }
 
     private static String formatPose(Pose pose) {

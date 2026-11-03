@@ -25,4 +25,8 @@ public class FieldPointsBlue {
 
 
     public static final Pose PARK_POSE = new Pose(131.1, 36.5, Math.toRadians(270.0));
+
+    public static final boolean GOALS_CONFIRMED = false;
+    public static final Pose GOAL_SCORING = new Pose(0.0, 0.0, Math.toRadians(0.0));
+    public static final Pose GOAL_AUDIENCE = new Pose(0.0, 0.0, Math.toRadians(0.0));
 }

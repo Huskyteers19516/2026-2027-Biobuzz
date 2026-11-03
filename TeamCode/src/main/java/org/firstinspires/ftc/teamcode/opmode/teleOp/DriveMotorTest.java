@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 @TeleOp(name = "Drive Motor Test", group = "Test")
 public class DriveMotorTest extends OpMode {
@@ -23,10 +24,10 @@ public class DriveMotorTest extends OpMode {
 
     @Override
     public void init() {
-        leftFront = initMotor(FRONT_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION);
-        leftBack = initMotor(BACK_LEFT_MOTOR_NAME, RobotTeleOp.LEFT_SIDE_DIRECTION);
-        rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION);
-        rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, RobotTeleOp.RIGHT_SIDE_DIRECTION);
+        leftFront = initMotor(FRONT_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION);
+        leftBack = initMotor(BACK_LEFT_MOTOR_NAME, Constants.LEFT_SIDE_DIRECTION);
+        rightFront = initMotor(FRONT_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION);
+        rightBack = initMotor(BACK_RIGHT_MOTOR_NAME, Constants.RIGHT_SIDE_DIRECTION);
         telemetry.addLine("Lift the robot so the wheels are off the floor, then press START.");
         telemetry.update();
     }
@@ -51,8 +52,8 @@ public class DriveMotorTest extends OpMode {
         addMotor("LT", BACK_LEFT_MOTOR_NAME, "back left wheel", leftBack, testLeftBack);
         addMotor("RT", BACK_RIGHT_MOTOR_NAME, "back right wheel", rightBack, testRightBack);
         telemetry.addLine();
-        telemetry.addData("Left side direction", RobotTeleOp.LEFT_SIDE_DIRECTION);
-        telemetry.addData("Right side direction", RobotTeleOp.RIGHT_SIDE_DIRECTION);
+        telemetry.addData("Left side direction", Constants.LEFT_SIDE_DIRECTION);
+        telemetry.addData("Right side direction", Constants.RIGHT_SIDE_DIRECTION);
     }
 
     @Override

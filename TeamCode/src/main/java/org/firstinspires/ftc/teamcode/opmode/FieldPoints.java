@@ -26,6 +26,10 @@ public class FieldPoints {
 
     public static final Pose PARK_POSE = new Pose(9.5, 105.0, Math.toRadians(90.0));
 
+    public static final boolean GOALS_CONFIRMED = false;
+    public static final Pose GOAL_SCORING = new Pose(0.0, 0.0, Math.toRadians(0.0));
+    public static final Pose GOAL_AUDIENCE = new Pose(0.0, 0.0, Math.toRadians(0.0));
+
     public static final GoalScanner.Alliance DEFAULT_ALLIANCE = GoalScanner.Alliance.RED;
 
     public static final boolean VISION_AIMING_ENABLED = true;

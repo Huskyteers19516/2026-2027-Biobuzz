@@ -11,7 +11,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.Telemetry;
-import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
@@ -71,9 +70,6 @@ public class Launcher {
     public static final double AUTO_FEED_INTAKE_POWER = 1.0;
     public static final double AUTO_STAGING_TRANSFER_POWER = 0.4;
     public static final int AUTO_EXTRA_ATTEMPTS = 2;
-
-    public static final double BLOCKER_CLOSED_POSITION = RobotTeleOp.BLOCKER_CLOSED_POSITION;
-    public static final double BLOCKER_OPEN_POSITION = RobotTeleOp.BLOCKER_OPEN_POSITION;
 
     private static final double VOLTAGE_READ_SECONDS = 0.1;
     private static final double VOLTAGE_FILTER = 0.3;
@@ -173,6 +169,7 @@ public class Launcher {
     private boolean enabled = false;
     private boolean firingHeld = false;
     private boolean manualOpen = false;
+    private boolean fireAllowed = true;
     private int queuedShots = 0;
     private double stagingTransferPower = 0.0;
     private Double openLoopPower = null;
@@ -225,12 +222,12 @@ public class Launcher {
         }
 
         outtake = hardwareMap.get(DcMotorEx.class, Constants.OUTTAKE);
-        outtake.setDirection(RobotTeleOp.OUTTAKE_DIRECTION);
+        outtake.setDirection(Constants.OUTTAKE_DIRECTION);
         outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
         transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
-        transfer.setDirection(RobotTeleOp.TRANSFER_DIRECTION);
+        transfer.setDirection(Constants.TRANSFER_DIRECTION);
         transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         transfer.setPower(0.0);
@@ -347,6 +344,10 @@ public class Launcher {
         manualOpen = open;
     }
 
+    public void setFireAllowed(boolean allowed) {
+        fireAllowed = allowed;
+    }
+
     public void setOpenLoopPower(Double power) {
         openLoopPower = power;
         integral = 0.0;
@@ -452,6 +453,10 @@ public class Launcher {
             activeShot.complete = true;
         }
 
+        if (!fireAllowed) {
+            queuedAt = now;
+            waitingSince = -1.0;
+        }
         if (queuedShots > 0 && spinUpSeconds >= 0) {
             double expireFrom = Math.max(queuedAt, enabledSince + spinUpSeconds);
             if (now - expireFrom >= queueExpireSeconds) {
@@ -468,7 +473,7 @@ public class Launcher {
         boolean canForce = !encoderReversed && targetVelocity >= MIN_FIRE_VELOCITY
                 && measured <= targetVelocity + readyTolerance;
         boolean timedOut = wantShot && canForce && now - waitingSince >= readyTimeoutSeconds;
-        if (wantShot && (ready || timedOut)) {
+        if (wantShot && fireAllowed && (ready || timedOut)) {
             startFeed(!ready || encoderFault);
             return;
         }
@@ -546,7 +551,7 @@ public class Launcher {
     private void writeMechanism() {
         boolean open = state == State.FEEDING || state == State.MANUAL_OPEN;
         if (blockerControl) {
-            writeBlocker(open ? BLOCKER_OPEN_POSITION : BLOCKER_CLOSED_POSITION);
+            writeBlocker(open ? Constants.BLOCKER_OPEN_POSITION : Constants.BLOCKER_CLOSED_POSITION);
         }
 
         double transferPower;
@@ -714,7 +719,7 @@ public class Launcher {
             outtake.setVelocity(0.0);
         }
         transfer.setPower(0.0);
-        blocker.setPosition(BLOCKER_CLOSED_POSITION);
+        blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
         lastPowerWritten = 0.0;
         lastVelocityWritten = 0.0;
         lastTransferWritten = 0.0;

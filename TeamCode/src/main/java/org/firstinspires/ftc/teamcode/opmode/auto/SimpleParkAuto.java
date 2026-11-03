@@ -17,7 +17,8 @@ import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.FieldPointsBlue;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
-import org.firstinspires.ftc.teamcode.opmode.teleOp.RobotTeleOp;
+import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -82,8 +83,6 @@ public class SimpleParkAuto extends LinearOpMode {
     private static final double DEFAULT_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
     private static final double AUTO_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
 
-    private static final DcMotorSimple.Direction INTAKE_DIRECTION = RobotTeleOp.INTAKE_DIRECTION;
-    private static final double INTAKE_POWER = RobotTeleOp.INTAKE_POWER;
     private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
 
     private static final String ARRIVED = "arrived";
@@ -104,12 +103,13 @@ public class SimpleParkAuto extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        PoseHandoff.clear();
         checkRoute("Red", redRoute());
         checkRoute("Blue", blueRoute());
 
         odometry = new WheelOdometry(hardwareMap);
 
-        intake = initRoller(INTAKE, INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
+        intake = initRoller(INTAKE, Constants.INTAKE_DIRECTION, DcMotor.ZeroPowerBehavior.FLOAT);
         launcher = new Launcher(hardwareMap);
         launcher.setReadyTimeoutSeconds(Launcher.AUTO_READY_TIMEOUT_SECONDS);
         launcher.setBlockerControlEnabled(false);
@@ -175,7 +175,7 @@ public class SimpleParkAuto extends LinearOpMode {
         odometry.reset(startPose());
         autoTimer.reset();
         launcher.update();
-        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
+        blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
 
         try {
             for (int i = 0; i < steps.size(); i++) {
@@ -191,6 +191,7 @@ public class SimpleParkAuto extends LinearOpMode {
             }
         } finally {
             stopEverything();
+            PoseHandoff.save(new Pose(odometry.x(), odometry.y(), odometry.heading()), alliance);
         }
 
         telemetry.addData("Status", "Finished");
@@ -259,7 +260,7 @@ public class SimpleParkAuto extends LinearOpMode {
 
     private String driveTo(String label, Step step) {
         if (step.intakeWhileDriving) {
-            intake.setPower(INTAKE_POWER);
+            intake.setPower(Constants.INTAKE_POWER);
         }
 
         ElapsedTime timer = new ElapsedTime();
@@ -399,7 +400,7 @@ public class SimpleParkAuto extends LinearOpMode {
         while (canRun() && timer.seconds() < seconds) {
             odometry.update();
             launcher.update();
-            blocker.setPosition(open ? RobotTeleOp.BLOCKER_OPEN_POSITION : RobotTeleOp.BLOCKER_CLOSED_POSITION);
+            blocker.setPosition(open ? Constants.BLOCKER_OPEN_POSITION : Constants.BLOCKER_CLOSED_POSITION);
             if (stopWhenReady && launcher.isReady()) {
                 break;
             }
@@ -412,12 +413,12 @@ public class SimpleParkAuto extends LinearOpMode {
         launcher.setManualBlockerOpen(false);
         launcher.setStagingTransferPower(Launcher.AUTO_STAGING_TRANSFER_POWER);
         intake.setPower(0.0);
-        blocker.setPosition(RobotTeleOp.BLOCKER_CLOSED_POSITION);
+        blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
         return canRun();
     }
 
     private boolean runIntake(String label, double seconds) {
-        intake.setPower(INTAKE_POWER);
+        intake.setPower(Constants.INTAKE_POWER);
         boolean ok = holdFor(label, "intaking", seconds);
         intake.setPower(0.0);
         return ok;
