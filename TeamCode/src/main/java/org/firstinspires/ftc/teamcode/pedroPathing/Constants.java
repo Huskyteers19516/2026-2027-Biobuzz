@@ -19,12 +19,6 @@ import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
-import org.firstinspires.ftc.teamcode.odometry.PoseWebMonitor;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpointConfig;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpointLocalizer;
-import org.firstinspires.ftc.teamcode.opmode.auto.WheelOdometry;
-
-import java.util.OptionalDouble;
 
 public class Constants {
 
@@ -39,7 +33,6 @@ public class Constants {
     public static final String OUTTAKE_BLOCKER = "outtake_blocker";
     public static final String WEBCAM = "Webcam 1";
     public static final String IMU_NAME = "imu";
-    public static final String COLOR_SENSOR = "color_sensor";
 
     public static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
     public static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
@@ -62,21 +55,19 @@ public class Constants {
     public static final double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
-    public static final float BALL_SENSOR_GAIN = 10.0f;
-    public static final double BALL_DETECT_MM = 50.0;
-    public static final double BALL_RELEASE_MARGIN_MM = 10.0;
-    public static final int MAX_BALLS = 3;
-
     public static final double SHOOTER_HEADING_OFFSET_DEGREES = 0.0;
-    public static final double MAX_GOAL_ENTRY_ANGLE_DEGREES = 60.0;
+    public static final double MAX_GOAL_ENTRY_ANGLE_DEGREES = 90.0;
     public static final double AIM_KP = 1.5;
     public static final double AIM_MIN_TURN_POWER = 0.06;
     public static final double AIM_MAX_TURN_POWER = 0.6;
     public static final double AIM_TOLERANCE_DEGREES = 2.0;
     public static final double AIM_SETTLE_SECONDS = 0.15;
 
-    public static final double[] SHOT_DISTANCES_INCHES = {24.0, 144.0};
-    public static final double[] SHOT_VELOCITIES = {1600.0, 1600.0};
+    public static final boolean GOAL_CHECK_CALIBRATED = false;
+    public static final double CAMERA_ROLL_OFFSET_DEGREES = 0.0;
+    public static final double GOAL_UP_MAX_ABS_ROLL_DEGREES = 90.0;
+    public static final boolean BLOCK_SHOT_WHEN_GOAL_NOT_SEEN = false;
+    public static final double GOAL_OPEN_WAIT_SECONDS = 1.5;
 
     private static final boolean MANUAL_BRAKE_MODE = true;
     private static final double POWER_THRESHOLD = 0.01;
@@ -93,23 +84,6 @@ public class Constants {
             GoBildaPinpointDriver.EncoderDirection.FORWARD;
     private static final GoBildaPinpointDriver.GoBildaOdometryPods PINPOINT_POD_TYPE =
             GoBildaPinpointDriver.GoBildaOdometryPods.goBILDA_4_BAR_POD;
-
-    public static final boolean USE_VIRTUAL_PINPOINT = true;
-
-    public static final String X_POD_ENCODER_NAME = INTAKE;
-    public static final String Y_POD_ENCODER_NAME = TRANSFER;
-    public static final GoBildaPinpointDriver.EncoderDirection VIRTUAL_X_POD_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-    public static final GoBildaPinpointDriver.EncoderDirection VIRTUAL_Y_POD_DIRECTION =
-            GoBildaPinpointDriver.EncoderDirection.FORWARD;
-    public static final double VIRTUAL_YAW_SCALAR = 1.0;
-    public static final double VIRTUAL_TICKS_PER_MM_OVERRIDE = 0.0;
-    public static final double VIRTUAL_VELOCITY_WINDOW_SECONDS = 0.03;
-    public static final double VIRTUAL_MAX_POD_SPEED_IN_PER_SEC = 250.0;
-    public static final double VIRTUAL_MAX_YAW_RATE_RAD_PER_SEC = 40.0;
-    public static final boolean VIRTUAL_RESTORE_POSE_ON_START = false;
-    public static final boolean VIRTUAL_WEB_MONITOR_ENABLED = true;
-    public static final int VIRTUAL_WEB_MONITOR_PORT = PoseWebMonitor.DEFAULT_PORT;
 
     private static final double MAX_FORWARD_VELOCITY = 50.0;
     private static final double MAX_STRAFE_VELOCITY = 50.0;
@@ -160,34 +134,6 @@ public class Constants {
         });
     }
 
-    public static VirtualPinpointConfig virtualPinpointConfig() {
-        return new VirtualPinpointConfig(c -> {
-            c.xPodEncoderName.set(X_POD_ENCODER_NAME);
-            c.yPodEncoderName.set(Y_POD_ENCODER_NAME);
-            c.imuName.set(IMU_NAME);
-            c.hubLogoDirection.set(WheelOdometry.HUB_LOGO_DIRECTION);
-            c.hubUsbDirection.set(WheelOdometry.HUB_USB_DIRECTION);
-            c.xPodOffset.set(PINPOINT_X_POD_OFFSET_MM);
-            c.yPodOffset.set(PINPOINT_Y_POD_OFFSET_MM);
-            c.offsetUnits.set(PINPOINT_OFFSET_UNIT);
-            c.globalDistanceUnit.set(PINPOINT_GLOBAL_UNIT);
-            c.xPodDirection.set(VIRTUAL_X_POD_DIRECTION);
-            c.yPodDirection.set(VIRTUAL_Y_POD_DIRECTION);
-            c.podType.set(PINPOINT_POD_TYPE);
-            if (VIRTUAL_TICKS_PER_MM_OVERRIDE > 0.0) {
-                c.ticksPerUnit.set(OptionalDouble.of(VIRTUAL_TICKS_PER_MM_OVERRIDE));
-                c.encoderResolutionUnit.set(DistanceUnit.MM);
-            }
-            c.yawScalar.set(VIRTUAL_YAW_SCALAR);
-            c.velocityWindowSeconds.set(VIRTUAL_VELOCITY_WINDOW_SECONDS);
-            c.maxPodSpeedInchesPerSecond.set(VIRTUAL_MAX_POD_SPEED_IN_PER_SEC);
-            c.maxYawRateRadiansPerSecond.set(VIRTUAL_MAX_YAW_RATE_RAD_PER_SEC);
-            c.restorePoseOnStart.set(VIRTUAL_RESTORE_POSE_ON_START);
-            c.webMonitorEnabled.set(VIRTUAL_WEB_MONITOR_ENABLED);
-            c.webMonitorPort.set(VIRTUAL_WEB_MONITOR_PORT);
-        });
-    }
-
     public static ForesightConfig foresightConfig() {
         return new ForesightConfig(c -> {
             c.forwardTranslational.set(Controller.piecewise(Controller.proportional(FORWARD_TRANSLATIONAL_SECONDARY_KP))
@@ -212,18 +158,7 @@ public class Constants {
     }
 
     public static Localizer createLocalizer(HardwareMap hardwareMap) {
-        if (USE_VIRTUAL_PINPOINT) {
-            return new VirtualPinpointLocalizer(hardwareMap, virtualPinpointConfig());
-        }
         return new PinpointLocalizer(hardwareMap, pinpointConfig());
-    }
-
-    public static String localizerName() {
-        if (USE_VIRTUAL_PINPOINT) {
-            return "Virtual Pinpoint (X pod port of \"" + X_POD_ENCODER_NAME + "\", Y pod port of \""
-                    + Y_POD_ENCODER_NAME + "\", IMU \"" + IMU_NAME + "\")";
-        }
-        return "goBILDA Pinpoint \"" + PINPOINT_NAME + "\"";
     }
 
     public static Algorithm createAlgorithm() {

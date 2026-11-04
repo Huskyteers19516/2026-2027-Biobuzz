@@ -27,6 +27,12 @@ public class FieldPointsBlue {
     public static final Pose PARK_POSE = new Pose(131.1, 36.5, Math.toRadians(270.0));
 
     public static final boolean GOALS_CONFIRMED = false;
-    public static final Pose GOAL_SCORING = new Pose(0.0, 0.0, Math.toRadians(0.0));
-    public static final Pose GOAL_AUDIENCE = new Pose(0.0, 0.0, Math.toRadians(0.0));
+    public static final Pose GOAL_SCORING = new Pose(84.75, 86.0, Math.toRadians(90.0));
+    public static final Pose GOAL_AUDIENCE = new Pose(84.75, 58.0, Math.toRadians(270.0));
+
+    public static final boolean PARK_ROUTE_CONFIRMED = false;
+    public static final Pose RACK_AROUND_1 = new Pose(114.0, 114.0, Math.toRadians(270.0));
+    public static final Pose RACK_AROUND_2 = new Pose(114.0, 39.0, Math.toRadians(270.0));
+    public static final Pose RACK_UNDER_ENTRY = new Pose(79.0, 108.0, Math.toRadians(270.0));
+    public static final Pose RACK_UNDER_EXIT = new Pose(79.0, 36.0, Math.toRadians(270.0));
 }

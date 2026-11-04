@@ -4,7 +4,6 @@ import com.pedropathing.api.Paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
 import com.pedropathing.paths.Path;
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -12,8 +11,6 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpoint;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpointLocalizer;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
@@ -201,6 +198,7 @@ public class MatchAuto extends LinearOpMode {
     private boolean aimUsedFallback = true;
     private String aimNote = "not aimed yet";
     private String poseAimNote = "not aimed yet";
+    private String shootGoal = null;
     private String aimTurnResult = "no turn yet";
     private int aimTurnPasses = 0;
 
@@ -252,8 +250,7 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.addData("Budget", "%.1f s", AUTONOMOUS_BUDGET_SECONDS);
                 telemetry.addData("Start pose", formatPose(startPose()));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
-                telemetry.addData("Localizer", Constants.localizerName());
-                addOdometryTelemetry(true);
+                telemetry.addData("Localizer", Constants.PINPOINT_NAME);
                 launcher.sense();
 
                 telemetry.addLine();
@@ -503,27 +500,88 @@ public class MatchAuto extends LinearOpMode {
         }
 
         launcher.spinUp();
-        turnToGoal(index, total, step);
+        shootGoal = turnToGoal(index, total, step, null);
+        if (!waitForOpenGoal(index, total, step)) {
+            lastShotResult = canKeepRunning()
+                    ? String.format("step %d: goal FACING DOWN for %.1f s - shots skipped",
+                            index + 1, Constants.GOAL_OPEN_WAIT_SECONDS)
+                    : String.format("step %d: out of time before shooting", index + 1);
+            if (!Launcher.AUTO_KEEP_SPINNING) {
+                launcher.stop();
+            }
+            return;
+        }
         int detected = 0;
+        int fired = 0;
+        boolean turnedDown = false;
         for (int shot = 0; shot < shots && canKeepRunning(); shot++) {
+            if (goalTurnedDown()) {
+                turnedDown = true;
+                break;
+            }
             scanAimAndCommit(index, total, step, shot, shots);
+            if (goalTurnedDown()) {
+                turnedDown = true;
+                break;
+            }
+            fired++;
             if (fireOne(index, total, step, String.format("shot %d / %d", shot + 1, shots))) {
                 detected++;
             }
         }
-        for (int extra = 0; detected < shots && extra < Launcher.AUTO_EXTRA_ATTEMPTS && canKeepRunning(); extra++) {
+        for (int extra = 0; !turnedDown && detected < shots && extra < Launcher.AUTO_EXTRA_ATTEMPTS && canKeepRunning(); extra++) {
+            if (goalTurnedDown()) {
+                turnedDown = true;
+                break;
+            }
+            fired++;
             if (fireOne(index, total, step, String.format("extra feed %d", extra + 1))) {
                 detected++;
             }
         }
 
         Launcher.Shot last = launcher.lastShot();
-        lastShotResult = String.format("step %d: %d / %d shots detected%s", index + 1, detected, shots,
+        lastShotResult = String.format("step %d: %d / %d shots detected%s%s", index + 1, detected, shots,
+                turnedDown ? String.format("  STOPPED after %d feeds - goal turned down", fired) : "",
                 last == null ? "" : "  last " + last.summary());
 
         if (!Launcher.AUTO_KEEP_SPINNING) {
             launcher.stop();
         }
+    }
+
+    private boolean goalTurnedDown() {
+        tick();
+        GoalScanner.GoalView view = shootGoal != null ? scanner.goalView(shootGoal) : scanner.facingView(alliance);
+        return view == GoalScanner.GoalView.FACING_DOWN && scanner.blocksShot(view);
+    }
+
+    private boolean waitForOpenGoal(int index, int total, Step step) {
+        ElapsedTime waitTimer = new ElapsedTime();
+        boolean switched = false;
+        while (canKeepRunning()) {
+            tick();
+            GoalScanner.GoalView view = shootGoal != null ? scanner.goalView(shootGoal) : scanner.facingView(alliance);
+            if (!scanner.blocksShot(view)) {
+                return true;
+            }
+            if (!switched && shootGoal != null && view == GoalScanner.GoalView.FACING_DOWN) {
+                GoalAim.Solution other = GoalAim.solveUp(alliance, follower.pose(), scanner);
+                if (!other.goalName.equals(shootGoal)) {
+                    switched = true;
+                    shootGoal = turnToGoal(index, total, step, other.goalName);
+                    continue;
+                }
+            }
+            if (waitTimer.seconds() >= Constants.GOAL_OPEN_WAIT_SECONDS) {
+                return false;
+            }
+            addStepTelemetry(index, total, step, "waiting - goal " + view);
+            telemetry.addData("Wait", "%.1f / %.1f s", waitTimer.seconds(), Constants.GOAL_OPEN_WAIT_SECONDS);
+            telemetry.addData("Candidates", scanner.candidateSummary(alliance));
+            telemetry.update();
+        }
+        return false;
     }
 
     private boolean fireOne(int index, int total, Step step, String label) {
@@ -549,13 +607,15 @@ public class MatchAuto extends LinearOpMode {
         return launcher.shotsDetected() > detectedBefore;
     }
 
-    private void turnToGoal(int index, int total, Step step) {
+    private String turnToGoal(int index, int total, Step step, String goalName) {
         if (!GoalAim.goalsConfirmed(alliance)) {
             poseAimNote = alliance + " goal points not confirmed - kept path heading and default velocity";
-            return;
+            return null;
         }
         Pose here = follower.pose();
-        GoalAim.Solution aim = GoalAim.solve(alliance, here);
+        GoalAim.Solution aim = goalName == null
+                ? GoalAim.solveUp(alliance, here, scanner)
+                : GoalAim.solveNamed(alliance, here, goalName);
         launcher.setTargetVelocity(aim.velocity);
         follower.hold(here.withHeading(aim.heading));
 
@@ -580,6 +640,7 @@ public class MatchAuto extends LinearOpMode {
                 settled ? "aligned" : String.format("TURN TIMEOUT (%.1f deg off)",
                         Math.toDegrees(aim.headingError(follower.pose()))),
                 aim.inEntryAngle ? "" : "  BAD ENTRY ANGLE");
+        return aim.goalName;
     }
 
     private void scanAimAndCommit(int index, int total, Step step, int shot, int shots) {
@@ -688,7 +749,7 @@ public class MatchAuto extends LinearOpMode {
 
         while (canKeepRunning() && scanTimer.seconds() < seconds) {
             tick();
-            found = scanner.bestTargetFor(alliance);
+            found = shootGoal != null ? scanner.usable(shootGoal) : scanner.bestOpenTargetFor(alliance);
             if (found != null) {
                 break;
             }
@@ -703,7 +764,7 @@ public class MatchAuto extends LinearOpMode {
 
         if (found == null && canKeepRunning()) {
             tick();
-            found = scanner.bestTargetFor(alliance);
+            found = shootGoal != null ? scanner.usable(shootGoal) : scanner.bestOpenTargetFor(alliance);
         }
 
         return found;
@@ -838,22 +899,6 @@ public class MatchAuto extends LinearOpMode {
         telemetry.addData("Current", formatPose(pose));
         telemetry.addData("Distance to target", "%.1f in", step.to.distance(pose));
         telemetry.addData("Runtime", "%.1f / %.1f s", runtime.seconds(), AUTONOMOUS_BUDGET_SECONDS);
-        addOdometryTelemetry(false);
-    }
-
-    private void addOdometryTelemetry(boolean initPhase) {
-        if (!(follower.localizer instanceof VirtualPinpointLocalizer)) {
-            return;
-        }
-        VirtualPinpoint pinpoint = ((VirtualPinpointLocalizer) follower.localizer).pinpoint();
-        GoBildaPinpointDriver.DeviceStatus status = pinpoint.getDeviceStatus();
-        if (status != GoBildaPinpointDriver.DeviceStatus.READY) {
-            telemetry.addLine("!! ODOMETRY " + status + " - " + VirtualPinpoint.statusAdvice(status));
-        }
-        telemetry.addData("Odometry", "%s  X %d  Y %d", status, pinpoint.getEncoderX(), pinpoint.getEncoderY());
-        if (initPhase) {
-            telemetry.addLine("Push the robot forward and sideways by hand: X and Y ticks must both change");
-        }
     }
 
     private static String formatPose(Pose pose) {

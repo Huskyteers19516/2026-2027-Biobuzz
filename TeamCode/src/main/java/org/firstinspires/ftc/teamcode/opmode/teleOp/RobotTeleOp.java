@@ -2,21 +2,18 @@ package org.firstinspires.ftc.teamcode.opmode.teleOp;
 
 import com.pedropathing.math.Pose;
 import com.pedropathing.localization.Localizer;
-import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
-import com.qualcomm.robotcore.hardware.ColorRangeSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.util.Range;
 
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
+import org.firstinspires.ftc.teamcode.launcher.ShotLog;
+import org.firstinspires.ftc.teamcode.launcher.ShotTable;
 import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.GoalAim;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpoint;
-import org.firstinspires.ftc.teamcode.odometry.VirtualPinpointLocalizer;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
@@ -35,7 +32,6 @@ public class RobotTeleOp extends OpMode {
     private static final double OUTTAKE_BIG_STEP = 500.0;
     private static final int READY_RUMBLE_MS = 200;
     private static final double MAX_VELOCITY_TRIM = Launcher.MAX_TARGET_VELOCITY - Launcher.MIN_TARGET_VELOCITY;
-    private static final double REVERSE_CLEARS_BALLS_SECONDS = 0.5;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
@@ -46,7 +42,8 @@ public class RobotTeleOp extends OpMode {
     private Launcher launcher;
     private Localizer localizer;
     private String localizerFault = "";
-    private ColorRangeSensor ballSensor;
+    private GoalScanner scanner;
+    private GoalScanner.GoalView goalView = GoalScanner.GoalView.NOT_SEEN;
 
     private GoalScanner.Alliance alliance = FieldPoints.DEFAULT_ALLIANCE;
     private boolean poseFromAuto = false;
@@ -62,17 +59,18 @@ public class RobotTeleOp extends OpMode {
     private boolean wasReady = false;
 
     private double velocityTrim = 0.0;
+    private int shotsLogged = 0;
+    private double lastShotDistance = Double.NaN;
+    private double lastShotVelocity = Double.NaN;
+    private int lastShotNumber = -1;
+    private int savedShotNumber = -1;
+    private String shotLogMessage = "";
     private boolean burstThisHold = false;
     private boolean autoBurstPending = false;
     private int autoBurstEndShot = 0;
     private boolean wasAimHeld = false;
-    private double reversingSince = -1.0;
     private double alignedSince = -1.0;
 
-    private int ballCount = 0;
-    private boolean ballPresent = false;
-    private double ballDistanceMm = Double.NaN;
-    private int shotsCounted = 0;
 
     @Override
     public void init() {
@@ -90,11 +88,6 @@ public class RobotTeleOp extends OpMode {
         launcher = new Launcher(hardwareMap);
         launcher.setQueueExpireSeconds(Launcher.TELEOP_QUEUE_EXPIRE_SECONDS);
 
-        ballSensor = hardwareMap.tryGet(ColorRangeSensor.class, Constants.COLOR_SENSOR);
-        if (ballSensor != null) {
-            ballSensor.setGain(Constants.BALL_SENSOR_GAIN);
-        }
-
         try {
             localizer = Constants.createLocalizer(hardwareMap);
         } catch (RuntimeException e) {
@@ -109,12 +102,15 @@ public class RobotTeleOp extends OpMode {
             localizer.setPose(poseFromAuto ? handoff : GoalAim.startPose(alliance));
         }
 
+        scanner = new GoalScanner(hardwareMap);
+
         telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
     }
 
     @Override
     public void init_loop() {
         launcher.sense();
+        scanner.update();
 
         GoalScanner.Alliance picked = alliance;
         if (gamepad1.x) {
@@ -138,7 +134,7 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("ALLIANCE", "%s   (gp1 X = BLUE, B = RED)", alliance);
         telemetry.addData("Pose source", poseFromAuto ? "end of auto" : "start pose - put the robot on it, gp1 BACK = re-zero");
         addPoseTelemetry(pose);
-        telemetry.addData("Ball sensor", ballSensor == null ? "not in config - ball count off" : "ok");
+        telemetry.addData("Camera", scanner.isAvailable() ? scanner.cameraState() : "NOT AVAILABLE - goal check off  " + scanner.fault());
         telemetry.addLine("Spin the outtake wheel by hand: Outtake velocity must change.");
     }
 
@@ -156,10 +152,13 @@ public class RobotTeleOp extends OpMode {
         burstThisHold = false;
         autoBurstPending = false;
         wasAimHeld = false;
-        reversingSince = -1.0;
         alignedSince = -1.0;
-        ballPresent = false;
-        shotsCounted = launcher.shotsAttempted();
+        shotsLogged = launcher.shotsAttempted();
+        lastShotNumber = -1;
+        savedShotNumber = -1;
+        lastShotDistance = Double.NaN;
+        lastShotVelocity = Double.NaN;
+        shotLogMessage = "";
         launcher.setTargetVelocity(Launcher.DEFAULT_TARGET_VELOCITY);
         flowerIntake.setPosition(Constants.FLOWER_POSITIONS[flowerIndex]);
         launcher.update();
@@ -171,6 +170,7 @@ public class RobotTeleOp extends OpMode {
             resetPose();
         }
         Pose pose = updatePose();
+        scanner.update();
 
         boolean slowTogglePressed = gamepad1.leftStickButtonWasPressed();
         boolean launcherTogglePressed = gamepad2.yWasPressed();
@@ -182,8 +182,6 @@ public class RobotTeleOp extends OpMode {
         boolean velocityDownPressed = gamepad2.dpadDownWasPressed();
         boolean velocityBigUpPressed = gamepad2.dpadRightWasPressed();
         boolean velocityBigDownPressed = gamepad2.dpadLeftWasPressed();
-        boolean ballResetPressed = gamepad1.dpadDownWasPressed();
-        boolean ballAddPressed = gamepad1.dpadUpWasPressed();
 
         double leftTriggerValue = gamepad1.left_trigger;
         boolean intakeTogglePressed = triggerRisingEdge(leftTriggerValue, leftTriggerLatched);
@@ -218,16 +216,12 @@ public class RobotTeleOp extends OpMode {
         if (flowerDownPressed) {
             flowerIndex = Math.max(flowerIndex - 1, 0);
         }
-        if (ballResetPressed) {
-            ballCount = 0;
-        }
-        if (ballAddPressed) {
-            ballCount = Math.min(ballCount + 1, Constants.MAX_BALLS);
-        }
 
-        GoalAim.Solution aim = pose != null && GoalAim.goalsConfirmed(alliance) ? GoalAim.solve(alliance, pose) : null;
+        GoalAim.Solution aim = pose != null && GoalAim.goalsConfirmed(alliance) ? GoalAim.solveUp(alliance, pose, scanner) : null;
         boolean aiming = aimHeld && aim != null;
         boolean aligned = updateAlignment(aiming, aim, pose);
+        goalView = aiming ? scanner.goalView(aim.goalName) : scanner.facingView(alliance);
+        boolean goalBlocked = scanner.blocksShot(goalView);
 
         double baseVelocity = aim != null ? aim.velocity : Launcher.DEFAULT_TARGET_VELOCITY;
         if (velocityUpPressed) {
@@ -262,7 +256,7 @@ public class RobotTeleOp extends OpMode {
                 launcher.requestShots(1);
                 burstThisHold = aimHeld;
             }
-            if (aiming && aligned && aim.inEntryAngle && !burstThisHold && launcher.queuedShots() == 0) {
+            if (aiming && aligned && aim.inEntryAngle && !goalBlocked && !burstThisHold && launcher.queuedShots() == 0) {
                 launcher.requestShots(Launcher.BURST_SIZE);
                 burstThisHold = true;
                 autoBurstPending = true;
@@ -277,10 +271,12 @@ public class RobotTeleOp extends OpMode {
             burstThisHold = false;
         }
         wasAimHeld = aimHeld;
-        launcher.setFireAllowed(!aiming || aligned);
+        if (goalBlocked) {
+            launcher.cancelShots();
+            autoBurstPending = false;
+        }
+        launcher.setFireAllowed((!aiming || aligned) && !goalBlocked);
         launcher.setManualBlockerOpen(gamepad2.x);
-
-        updateBallCount(reversing);
 
         double scale = slowMode ? SLOW_SCALE : 1.0;
         double manualYaw = aiming ? 0.0 : deadzone(gamepad1.right_stick_x);
@@ -308,6 +304,7 @@ public class RobotTeleOp extends OpMode {
 
         flowerIntake.setPosition(Constants.FLOWER_POSITIONS[flowerIndex]);
         launcher.update();
+        updateShotLog(aim);
 
         boolean ready = launcher.isReady();
         if (ready && !wasReady) {
@@ -323,6 +320,31 @@ public class RobotTeleOp extends OpMode {
         drive(0.0, 0.0, 0.0, 1.0, 0.0);
         intake.setPower(0.0);
         launcher.shutdown();
+        scanner.close();
+    }
+
+    private String goalViewText() {
+        if (!scanner.isAvailable()) {
+            return "no camera - not checked";
+        }
+        String text;
+        switch (goalView) {
+            case OPEN:
+                text = "OPEN - ok to shoot";
+                break;
+            case FACING_DOWN:
+                text = "FACING DOWN - DON'T SHOOT";
+                break;
+            default:
+                text = "not seen";
+                break;
+        }
+        if (scanner.blocksShot(goalView)) {
+            text += "  (shots cancelled, gp2 X still dumps)";
+        } else if (!Constants.GOAL_CHECK_CALIBRATED) {
+            text += "  (not calibrated - never blocks)";
+        }
+        return text;
     }
 
     private Pose updatePose() {
@@ -361,43 +383,6 @@ public class RobotTeleOp extends OpMode {
         return -Math.signum(error) * power;
     }
 
-    private void updateBallCount(boolean reversing) {
-        int attempted = launcher.shotsAttempted();
-        ballCount = Math.max(0, ballCount - (attempted - shotsCounted));
-        shotsCounted = attempted;
-
-        if (reversing) {
-            if (reversingSince < 0) {
-                reversingSince = getRuntime();
-            }
-            if (getRuntime() - reversingSince >= REVERSE_CLEARS_BALLS_SECONDS) {
-                ballCount = 0;
-            }
-        } else {
-            reversingSince = -1.0;
-        }
-        if (gamepad2.x) {
-            ballCount = 0;
-        }
-
-        if (ballSensor == null) {
-            return;
-        }
-        int before = ballCount;
-        ballDistanceMm = ballSensor.getDistance(DistanceUnit.MM);
-        if (!ballPresent && ballDistanceMm < Constants.BALL_DETECT_MM) {
-            ballPresent = true;
-            if (!reversing) {
-                ballCount = Math.min(ballCount + 1, Constants.MAX_BALLS);
-            }
-        } else if (ballPresent && ballDistanceMm > Constants.BALL_DETECT_MM + Constants.BALL_RELEASE_MARGIN_MM) {
-            ballPresent = false;
-        }
-        if (before < Constants.MAX_BALLS && ballCount >= Constants.MAX_BALLS) {
-            intakeOn = false;
-        }
-    }
-
     private void drive(double axial, double lateral, double yaw, double scale, double aimYaw) {
         double[] powers = {
                 axial + lateral + yaw,
@@ -430,28 +415,59 @@ public class RobotTeleOp extends OpMode {
         }
     }
 
+    private void updateShotLog(GoalAim.Solution aim) {
+        if (launcher.shotsAttempted() != shotsLogged) {
+            shotsLogged = launcher.shotsAttempted();
+            Launcher.Shot shot = launcher.lastShot();
+            if (shot != null && (shot.detected || launcher.encoderFault())) {
+                lastShotDistance = aim != null ? aim.distance : Double.NaN;
+                lastShotVelocity = shot.target;
+                lastShotNumber = shotsLogged;
+            }
+        }
+        if (gamepad2.backWasPressed()) {
+            if (Double.isNaN(lastShotDistance)) {
+                shotLogMessage = "NOT saved - no confirmed shot with a distance yet";
+            } else if (lastShotNumber == savedShotNumber) {
+                shotLogMessage = "already saved this shot";
+            } else {
+                shotLogMessage = "saved " + ShotLog.record(lastShotDistance, lastShotVelocity);
+                savedShotNumber = lastShotNumber;
+                String error = ShotLog.lastError();
+                if (!error.isEmpty()) {
+                    shotLogMessage += "  FILE ERROR " + error;
+                }
+            }
+        }
+        if (gamepad2.rightStickButtonWasPressed()) {
+            String removed = ShotLog.undo();
+            shotLogMessage = removed == null ? "nothing to undo" : "removed " + removed;
+            if (removed != null) {
+                savedShotNumber = -1;
+            }
+            String undoError = ShotLog.lastError();
+            if (!undoError.isEmpty()) {
+                shotLogMessage += "  FILE ERROR " + undoError;
+            }
+        }
+    }
+
     private void addPoseTelemetry(Pose pose) {
         if (pose == null) {
             telemetry.addData("Localizer", "NOT AVAILABLE - auto aim and auto velocity off  %s", localizerFault);
             return;
         }
         telemetry.addData("Pose", GoalAim.formatPose(pose));
-        if (localizer instanceof VirtualPinpointLocalizer) {
-            VirtualPinpoint pinpoint = ((VirtualPinpointLocalizer) localizer).pinpoint();
-            GoBildaPinpointDriver.DeviceStatus status = pinpoint.getDeviceStatus();
-            if (status != GoBildaPinpointDriver.DeviceStatus.READY) {
-                telemetry.addLine("!! ODOMETRY " + status + " - " + VirtualPinpoint.statusAdvice(status));
-            }
-            telemetry.addData("Odometry", "%s  X %d  Y %d", status, pinpoint.getEncoderX(), pinpoint.getEncoderY());
-        }
         if (!GoalAim.goalsConfirmed(alliance)) {
             telemetry.addLine("!! " + alliance + " GOAL POINTS NOT CONFIRMED - auto aim and auto velocity off");
         } else {
-            telemetry.addData("Goal", GoalAim.solve(alliance, pose).summary(pose));
+            telemetry.addData("Goal", GoalAim.solveUp(alliance, pose, scanner).summary(pose));
         }
         String tableProblem = GoalAim.shotTableProblem();
         if (tableProblem != null) {
             telemetry.addLine("!! shot table: " + tableProblem);
+        } else {
+            telemetry.addData("Shot table", ShotTable.summary());
         }
     }
 
@@ -460,17 +476,19 @@ public class RobotTeleOp extends OpMode {
         launcher.addTelemetry(telemetry);
         addPoseTelemetry(pose);
         telemetry.addData("Auto aim", aiming ? (aligned ? "ALIGNED" : "TURNING") : "off (hold gp1 RB)");
+        telemetry.addData("Goal (camera)", goalViewText());
         if (aim != null) {
             telemetry.addData("Velocity", "table %.0f  trim %+.0f", baseVelocity, velocityTrim);
         } else {
             telemetry.addData("Velocity", "default %.0f  trim %+.0f", baseVelocity, velocityTrim);
         }
-        if (ballSensor == null) {
-            telemetry.addData("Balls", "%d  (no sensor - count by hand with gp1 dpad)", ballCount);
+        if (Double.isNaN(lastShotDistance)) {
+            telemetry.addData("BACK saves", "no shot to save yet");
         } else {
-            telemetry.addData("Balls", "%d / %d%s  sensor %.0f mm", ballCount, Constants.MAX_BALLS,
-                    ballCount >= Constants.MAX_BALLS ? "  FULL" : "", ballDistanceMm);
+            telemetry.addData("BACK saves", "%.1f in  at %.0f", lastShotDistance, lastShotVelocity);
         }
+        telemetry.addData("Shot log", "%d saved  (gp2 BACK = last shot went in, gp2 R-stick = undo)  %s",
+                ShotLog.count(), shotLogMessage);
         telemetry.addData("Flower", "position %d / %d  pos %.2f",
                 flowerIndex + 1, Constants.FLOWER_POSITIONS.length, flowerIntake.getPosition());
         telemetry.addData("Intake", "%s  power %.2f%s",
@@ -479,7 +497,7 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Transfer", "latch %s  staging power %.2f",
                 transferLatched ? "ON" : "OFF", transferPower);
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
-        telemetry.addLine("gp1 RB hold = aim + fire 3   gp1 BACK = re-zero at start pose   gp1 dpad up/down = ball +1 / reset");
+        telemetry.addLine("gp1 RB hold = aim + fire 3   gp1 BACK = re-zero at start pose");
         telemetry.addLine("gp2 RT fire 3   gp2 LT fire 1   gp1 LB cancel   gp2 Y launcher   gp2 X hold = open blocker");
     }
 

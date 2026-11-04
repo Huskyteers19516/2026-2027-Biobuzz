@@ -34,6 +34,10 @@ public class GoalScanner {
     public static final String CLUSTER_BLUE_AUDIENCE = "BLUE AUDIENCE";
     public static final String CLUSTER_BLUE_SCORING = "BLUE SCORING";
 
+    public static final long VIEW_MEMORY_MS = 1000L;
+
+    public enum GoalView { NOT_SEEN, OPEN, FACING_DOWN }
+
     public enum Alliance {
 
         RED(CLUSTER_RED_SCORING, CLUSTER_RED_AUDIENCE),
@@ -55,18 +59,34 @@ public class GoalScanner {
         public final double range;
         public final double bearing;
         public final double elevation;
+        public final double yaw;
+        public final double pitch;
+        public final double roll;
         public final long frameNanoTime;
         public final long observedNanoTime;
 
         Sighting(String shortName, int percentClusterFound, double range, double bearing,
-                 double elevation, long frameNanoTime, long observedNanoTime) {
+                 double elevation, double yaw, double pitch, double roll,
+                 long frameNanoTime, long observedNanoTime) {
             this.shortName = shortName;
             this.percentClusterFound = percentClusterFound;
             this.range = range;
             this.bearing = bearing;
             this.elevation = elevation;
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.roll = roll;
             this.frameNanoTime = frameNanoTime;
             this.observedNanoTime = observedNanoTime;
+        }
+
+        public double uprightRollDegrees() {
+            double r = Math.toRadians(roll - Constants.CAMERA_ROLL_OFFSET_DEGREES);
+            return Math.toDegrees(Math.atan2(Math.sin(r), Math.cos(r)));
+        }
+
+        public boolean isFacingAway() {
+            return Math.abs(uprightRollDegrees()) >= Constants.GOAL_UP_MAX_ABS_ROLL_DEGREES;
         }
 
         public long ageMs() {
@@ -184,6 +204,9 @@ public class GoalScanner {
                     detection.ftcPose.range,
                     detection.ftcPose.bearing,
                     detection.ftcPose.elevation,
+                    detection.ftcPose.yaw,
+                    detection.ftcPose.pitch,
+                    detection.ftcPose.roll,
                     detection.frameAcquisitionNanoTime,
                     now));
         }
@@ -193,10 +216,60 @@ public class GoalScanner {
         }
     }
 
-    public Sighting bestTargetFor(Alliance alliance) {
-        Sighting first = usableSighting(alliance.firstCluster);
-        Sighting second = usableSighting(alliance.secondCluster);
+    public Sighting bestOpenTargetFor(Alliance alliance) {
+        return pickTarget(usable(alliance.firstCluster), usable(alliance.secondCluster));
+    }
 
+    public Sighting usable(String shortName) {
+        Sighting sighting = usableSighting(shortName);
+        if (sighting != null && classificationTrusted() && sighting.isFacingAway()) {
+            return null;
+        }
+        return sighting;
+    }
+
+    public GoalView facingView(Alliance alliance) {
+        Sighting first = recentSighting(alliance.firstCluster);
+        Sighting second = recentSighting(alliance.secondCluster);
+        Sighting facing = first;
+        if (first == null) {
+            facing = second;
+        } else if (second != null) {
+            long deltaMs = (second.observedNanoTime - first.observedNanoTime) / 1_000_000L;
+            if (deltaMs > RECENCY_PREFERENCE_MS
+                    || (-deltaMs <= RECENCY_PREFERENCE_MS && Math.abs(second.bearing) < Math.abs(first.bearing))) {
+                facing = second;
+            }
+        }
+        if (facing == null) {
+            return GoalView.NOT_SEEN;
+        }
+        return goalView(facing.shortName);
+    }
+
+    public boolean classificationTrusted() {
+        return isAvailable() && Constants.GOAL_CHECK_CALIBRATED;
+    }
+
+    public boolean blocksShot(GoalView view) {
+        if (!classificationTrusted()) {
+            return false;
+        }
+        if (view == GoalView.FACING_DOWN) {
+            return true;
+        }
+        return view == GoalView.NOT_SEEN && Constants.BLOCK_SHOT_WHEN_GOAL_NOT_SEEN;
+    }
+
+    private Sighting recentSighting(String shortName) {
+        Sighting sighting = latestByCluster.get(shortName);
+        if (sighting == null || !sighting.isStrongEnough() || sighting.ageMs() > VIEW_MEMORY_MS) {
+            return null;
+        }
+        return sighting;
+    }
+
+    private static Sighting pickTarget(Sighting first, Sighting second) {
         if (first == null) {
             return second;
         }
@@ -223,6 +296,42 @@ public class GoalScanner {
             return null;
         }
         return sighting;
+    }
+
+    public GoalView goalView(String shortName) {
+        Sighting own = recentSighting(shortName);
+        String partner = partnerOf(shortName);
+        Sighting other = partner == null ? null : recentSighting(partner);
+        if (own == null && other == null) {
+            return GoalView.NOT_SEEN;
+        }
+        boolean partnerDecides = own == null
+                || (other != null && other.observedNanoTime > own.observedNanoTime
+                && other.isFacingAway() == own.isFacingAway());
+        if (partnerDecides) {
+            return other.isFacingAway() ? GoalView.OPEN : GoalView.FACING_DOWN;
+        }
+        return own.isFacingAway() ? GoalView.FACING_DOWN : GoalView.OPEN;
+    }
+
+    public static String partnerOf(String shortName) {
+        if (CLUSTER_RED_SCORING.equals(shortName)) {
+            return CLUSTER_RED_AUDIENCE;
+        }
+        if (CLUSTER_RED_AUDIENCE.equals(shortName)) {
+            return CLUSTER_RED_SCORING;
+        }
+        if (CLUSTER_BLUE_SCORING.equals(shortName)) {
+            return CLUSTER_BLUE_AUDIENCE;
+        }
+        if (CLUSTER_BLUE_AUDIENCE.equals(shortName)) {
+            return CLUSTER_BLUE_SCORING;
+        }
+        return null;
+    }
+
+    public Sighting latest(String shortName) {
+        return latestByCluster.get(shortName);
     }
 
     public String candidateSummary(Alliance alliance) {
