@@ -33,8 +33,10 @@ public class FieldPoints {
     public static final boolean PARK_ROUTE_CONFIRMED = false;
     public static final Pose RACK_AROUND_1 = new Pose(30.0, 30.0, Math.toRadians(90.0));
     public static final Pose RACK_AROUND_2 = new Pose(30.0, 105.0, Math.toRadians(90.0));
-    public static final Pose RACK_UNDER_ENTRY = new Pose(65.0, 36.0, Math.toRadians(90.0));
-    public static final Pose RACK_UNDER_EXIT = new Pose(65.0, 108.0, Math.toRadians(90.0));
+    public static final Pose UNDER_RACK_CONTROL_POINT_1 = new Pose(60.629, 104.899, Math.toRadians(90.0));
+    public static final Pose UNDER_RACK_CONTROL_POINT_2 = new Pose(60.629, 35.382, Math.toRadians(90.0));
+
+
     public static final double PARK_SEGMENT_TIMEOUT_SECONDS = 5.0;
     public static final double RACK_UNDER_TIMEOUT_SECONDS = 6.0;
 
