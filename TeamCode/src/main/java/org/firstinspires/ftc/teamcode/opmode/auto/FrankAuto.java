@@ -161,3 +161,120 @@ public class FrankDriveControl extends LinearOpMode {
         stopDrive();
     }
 }
+
+
+
+
+package org.firstinspires.ftc.teamcode.opmode;
+
+import com.pedropathing.math.Pose;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+
+
+public final class FrankAutoDesign {
+
+    private FrankAutoDesign() { }
+
+    public enum Action {
+        MOVE, INTAKE, SHOOT, PARK
+    }
+
+    public static Pose startPose() {
+        return FieldPoints.START_POSE;
+    }
+
+    public static double budgetSeconds() {
+        return FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
+    }
+
+    // Advisory review status; an executor must explicitly check it.
+    public static boolean isReviewed() {
+        return FieldPoints.POINTS_CONFIRMED
+                && FieldPoints.GOALS_CONFIRMED
+                && FieldPoints.PARK_ROUTE_CONFIRMED;
+    }
+
+    public static List<Step> steps() {
+        List<Step> route = new ArrayList<>();
+
+        route.add(new Step(
+                "Drive to shooting point 1 and shoot preload",
+                FieldPoints.START_POSE,
+                FieldPoints.SHOOT_POSE_1,
+                Action.SHOOT,
+                FieldPoints.SHOTS_AT_SHOOT_POSE_1,
+                false, 0.0,
+                FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Move to flower 1 start",
+                FieldPoints.SHOOT_POSE_1,
+                FieldPoints.FLOWER_1_START,
+                Action.MOVE, 0, false, 0.0,
+                FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Intake along flower 1 and briefly hold at its end",
+                FieldPoints.FLOWER_1_START,
+                FieldPoints.FLOWER_1_END,
+                Action.INTAKE, 0, true,
+                FieldPoints.INTAKE_SECONDS_AT_FLOWER,
+                FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Return to shooting point 1 and shoot collected artifact",
+                FieldPoints.FLOWER_1_END,
+                FieldPoints.SHOOT_POSE_1,
+                Action.SHOOT,
+                FieldPoints.SHOTS_AFTER_FLOWER,
+                false, 0.0,
+                FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Move to candidate rack bypass waypoint 1",
+                FieldPoints.SHOOT_POSE_1,
+                FieldPoints.RACK_AROUND_1,
+                Action.MOVE, 0, false, 0.0,
+                FieldPoints.PARK_SEGMENT_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Move to candidate rack bypass waypoint 2",
+                FieldPoints.RACK_AROUND_1,
+                FieldPoints.RACK_AROUND_2,
+                Action.MOVE, 0, false, 0.0,
+                FieldPoints.PARK_SEGMENT_TIMEOUT_SECONDS));
+
+        route.add(new Step(
+                "Move to the designated park pose",
+                FieldPoints.RACK_AROUND_2,
+                FieldPoints.PARK_POSE,
+                Action.PARK, 0, false, 0.0,
+                FieldPoints.PARK_SEGMENT_TIMEOUT_SECONDS));
+
+        return Collections.unmodifiableList(route);
+    }
+
+    public static final class Step {
+        public final String name;
+        public final Pose from;
+        public final Pose to;
+
+        // MOVE/PARK: drive only. SHOOT: drive, then aim and shoot.
+        // INTAKE: intake while driving if enabled, then hold for the dwell.
+        public final Action action;
+        public final int shots;
+        public final boolean intakeWhileDriving;
+        public final double intakeDwellSeconds;
+        public final double pathTimeoutSeconds;
+
+        private Step(String name, Pose from, Pose to, Action action, int shots,
+                     boolean intakeWhileDriving, double intakeDwellSeconds,
+                     double pathTimeoutSeconds) {
+            this.name = name;
+            this.from = from;
+            this.to = to;
+            this.action = action;
+            this.shots = shots;
+            this.intakeWhileDriving = intakeWhileDriving;
