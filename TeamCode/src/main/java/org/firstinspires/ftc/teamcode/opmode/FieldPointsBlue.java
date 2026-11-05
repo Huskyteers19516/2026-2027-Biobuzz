@@ -33,6 +33,6 @@ public class FieldPointsBlue {
     public static final boolean PARK_ROUTE_CONFIRMED = false;
     public static final Pose RACK_AROUND_1 = new Pose(114.0, 114.0, Math.toRadians(270.0));
     public static final Pose RACK_AROUND_2 = new Pose(114.0, 39.0, Math.toRadians(270.0));
-    public static final Pose UNDER_RACK_CONTROL_POINT_1 = new Pose(79.0, 108.0, Math.toRadians(270.0));
-    public static final Pose UNDER_RACK_CONTROL_POINT_2 = new Pose(79.0, 36.0, Math.toRadians(270.0));
+    public static final Pose UNDER_RACK_CONTROL_POINT_1 = new Pose(79.018, 106.517, Math.toRadians(270.0));
+    public static final Pose UNDER_RACK_CONTROL_POINT_2 = new Pose(79.018, 33.812, Math.toRadians(270.0));
 }

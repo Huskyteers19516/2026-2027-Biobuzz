@@ -1,0 +1,394 @@
+package org.firstinspires.ftc.teamtestcode.other.robot.opmode;
+
+import android.util.Size;
+
+import com.qualcomm.robotcore.hardware.HardwareMap;
+
+import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
+import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
+import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
+import org.firstinspires.ftc.teamtestcode.other.robot.pedroPathing.Constants;
+import org.firstinspires.ftc.vision.VisionPortal;
+import org.firstinspires.ftc.vision.apriltag.AprilTagClusterDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
+import org.firstinspires.ftc.vision.apriltag.AprilTagGameDatabase;
+import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
+public class GoalScanner {
+
+    public static final int CAMERA_WIDTH = 640;
+    public static final int CAMERA_HEIGHT = 480;
+    public static final float DECIMATION = 2.0f;
+    public static final boolean LIVE_VIEW = false;
+
+    public static final long SIGHTING_FRESHNESS_MS = 250L;
+    public static final long RECENCY_PREFERENCE_MS = 50L;
+    public static final int MIN_PERCENT_CLUSTER_FOUND = 50;
+
+    public static final String CLUSTER_RED_SCORING = "RED SCORING";
+    public static final String CLUSTER_RED_AUDIENCE = "RED AUDIENCE";
+    public static final String CLUSTER_BLUE_AUDIENCE = "BLUE AUDIENCE";
+    public static final String CLUSTER_BLUE_SCORING = "BLUE SCORING";
+
+    public static final long VIEW_MEMORY_MS = 1000L;
+
+    public enum GoalView { NOT_SEEN, OPEN, FACING_DOWN }
+
+    public enum Alliance {
+
+        RED(CLUSTER_RED_SCORING, CLUSTER_RED_AUDIENCE),
+        BLUE(CLUSTER_BLUE_SCORING, CLUSTER_BLUE_AUDIENCE);
+
+        public final String firstCluster;
+        public final String secondCluster;
+
+        Alliance(String firstCluster, String secondCluster) {
+            this.firstCluster = firstCluster;
+            this.secondCluster = secondCluster;
+        }
+    }
+
+    public static class Sighting {
+
+        public final String shortName;
+        public final int percentClusterFound;
+        public final double range;
+        public final double bearing;
+        public final double elevation;
+        public final double yaw;
+        public final double pitch;
+        public final double roll;
+        public final long frameNanoTime;
+        public final long observedNanoTime;
+
+        Sighting(String shortName, int percentClusterFound, double range, double bearing,
+                 double elevation, double yaw, double pitch, double roll,
+                 long frameNanoTime, long observedNanoTime) {
+            this.shortName = shortName;
+            this.percentClusterFound = percentClusterFound;
+            this.range = range;
+            this.bearing = bearing;
+            this.elevation = elevation;
+            this.yaw = yaw;
+            this.pitch = pitch;
+            this.roll = roll;
+            this.frameNanoTime = frameNanoTime;
+            this.observedNanoTime = observedNanoTime;
+        }
+
+        public double uprightRollDegrees() {
+            double r = Math.toRadians(roll - Constants.CAMERA_ROLL_OFFSET_DEGREES);
+            return Math.toDegrees(Math.atan2(Math.sin(r), Math.cos(r)));
+        }
+
+        public boolean isFacingAway() {
+            return Math.abs(uprightRollDegrees()) >= Constants.GOAL_UP_MAX_ABS_ROLL_DEGREES;
+        }
+
+        public long ageMs() {
+            return (System.nanoTime() - observedNanoTime) / 1_000_000L;
+        }
+
+        public boolean isFresh() {
+            return ageMs() <= SIGHTING_FRESHNESS_MS;
+        }
+
+        public boolean isStrongEnough() {
+            return percentClusterFound >= MIN_PERCENT_CLUSTER_FOUND;
+        }
+
+        public boolean isUsable() {
+            return isFresh() && isStrongEnough();
+        }
+
+        public String describe() {
+            return String.format("%s  %d%%  range %.1f in  bearing %.1f deg  age %d ms",
+                    shortName, percentClusterFound, range, bearing, ageMs());
+        }
+    }
+
+    private VisionPortal visionPortal;
+    private AprilTagProcessor aprilTag;
+
+    private final Map<String, Sighting> latestByCluster = new LinkedHashMap<String, Sighting>();
+
+    private String fault = "";
+    private long updateCount = 0L;
+    private long clusterFrameCount = 0L;
+
+    public GoalScanner(HardwareMap hardwareMap) {
+        try {
+            aprilTag = new AprilTagProcessor.Builder()
+                    .setTagLibrary(AprilTagGameDatabase.getCurrentGameTagLibrary())
+                    .setOutputUnits(DistanceUnit.INCH, AngleUnit.DEGREES)
+                    .setDrawTagOutline(LIVE_VIEW)
+                    .setDrawTagID(LIVE_VIEW)
+                    .setDrawAxes(false)
+                    .build();
+            aprilTag.setDecimation(DECIMATION);
+
+            visionPortal = new VisionPortal.Builder()
+                    .setCamera(hardwareMap.get(WebcamName.class, Constants.WEBCAM))
+                    .setCameraResolution(new Size(CAMERA_WIDTH, CAMERA_HEIGHT))
+                    .enableLiveView(LIVE_VIEW)
+                    .setAutoStopLiveView(true)
+                    .addProcessor(aprilTag)
+                    .build();
+        } catch (Exception e) {
+            aprilTag = null;
+            visionPortal = null;
+            fault = "camera '" + Constants.WEBCAM + "' unavailable: " + e.getClass().getSimpleName();
+        }
+    }
+
+    public boolean isAvailable() {
+        return aprilTag != null;
+    }
+
+    public String fault() {
+        return fault;
+    }
+
+    public void update() {
+        if (aprilTag == null) {
+            return;
+        }
+
+        updateCount++;
+
+        List<AprilTagDetection> detections;
+        try {
+            detections = aprilTag.getDetections();
+        } catch (Exception e) {
+            fault = "getDetections failed: " + e.getClass().getSimpleName();
+            return;
+        }
+
+        if (detections == null || detections.isEmpty()) {
+            return;
+        }
+
+        long now = System.nanoTime();
+        boolean sawNewCluster = false;
+
+        for (AprilTagDetection detection : detections) {
+            if (!(detection instanceof AprilTagClusterDetection)) {
+                continue;
+            }
+            if (detection.ftcPose == null) {
+                continue;
+            }
+
+            AprilTagClusterDetection cluster = (AprilTagClusterDetection) detection;
+            if (cluster.metadata == null || cluster.metadata.shortName == null) {
+                continue;
+            }
+
+            String shortName = cluster.metadata.shortName;
+            Sighting previous = latestByCluster.get(shortName);
+            boolean frameClockUsable = detection.frameAcquisitionNanoTime > 0L;
+            if (frameClockUsable && previous != null
+                    && detection.frameAcquisitionNanoTime <= previous.frameNanoTime) {
+                continue;
+            }
+
+            sawNewCluster = true;
+
+            latestByCluster.put(shortName, new Sighting(
+                    shortName,
+                    cluster.percentClusterFound,
+                    detection.ftcPose.range,
+                    detection.ftcPose.bearing,
+                    detection.ftcPose.elevation,
+                    detection.ftcPose.yaw,
+                    detection.ftcPose.pitch,
+                    detection.ftcPose.roll,
+                    detection.frameAcquisitionNanoTime,
+                    now));
+        }
+
+        if (sawNewCluster) {
+            clusterFrameCount++;
+        }
+    }
+
+    public Sighting bestOpenTargetFor(Alliance alliance) {
+        return pickTarget(usable(alliance.firstCluster), usable(alliance.secondCluster));
+    }
+
+    public Sighting usable(String shortName) {
+        Sighting sighting = usableSighting(shortName);
+        if (sighting != null && classificationTrusted() && sighting.isFacingAway()) {
+            return null;
+        }
+        return sighting;
+    }
+
+    public GoalView facingView(Alliance alliance) {
+        Sighting first = recentSighting(alliance.firstCluster);
+        Sighting second = recentSighting(alliance.secondCluster);
+        Sighting facing = first;
+        if (first == null) {
+            facing = second;
+        } else if (second != null) {
+            long deltaMs = (second.observedNanoTime - first.observedNanoTime) / 1_000_000L;
+            if (deltaMs > RECENCY_PREFERENCE_MS
+                    || (-deltaMs <= RECENCY_PREFERENCE_MS && Math.abs(second.bearing) < Math.abs(first.bearing))) {
+                facing = second;
+            }
+        }
+        if (facing == null) {
+            return GoalView.NOT_SEEN;
+        }
+        return goalView(facing.shortName);
+    }
+
+    public boolean classificationTrusted() {
+        return isAvailable() && Constants.GOAL_CHECK_CALIBRATED;
+    }
+
+    public boolean blocksShot(GoalView view) {
+        if (!classificationTrusted()) {
+            return false;
+        }
+        if (view == GoalView.FACING_DOWN) {
+            return true;
+        }
+        return view == GoalView.NOT_SEEN && Constants.BLOCK_SHOT_WHEN_GOAL_NOT_SEEN;
+    }
+
+    private Sighting recentSighting(String shortName) {
+        Sighting sighting = latestByCluster.get(shortName);
+        if (sighting == null || !sighting.isStrongEnough() || sighting.ageMs() > VIEW_MEMORY_MS) {
+            return null;
+        }
+        return sighting;
+    }
+
+    private static Sighting pickTarget(Sighting first, Sighting second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null) {
+            return first;
+        }
+
+        long deltaMs = (first.observedNanoTime - second.observedNanoTime) / 1_000_000L;
+        if (deltaMs > RECENCY_PREFERENCE_MS) {
+            return first;
+        }
+        if (-deltaMs > RECENCY_PREFERENCE_MS) {
+            return second;
+        }
+        if (first.percentClusterFound != second.percentClusterFound) {
+            return first.percentClusterFound > second.percentClusterFound ? first : second;
+        }
+        return first.range <= second.range ? first : second;
+    }
+
+    public Sighting usableSightingSince(String shortName, long sinceNanoTime) {
+        Sighting sighting = usableSighting(shortName);
+        if (sighting == null || sighting.observedNanoTime <= sinceNanoTime) {
+            return null;
+        }
+        return sighting;
+    }
+
+    public GoalView goalView(String shortName) {
+        Sighting own = recentSighting(shortName);
+        String partner = partnerOf(shortName);
+        Sighting other = partner == null ? null : recentSighting(partner);
+        if (own == null && other == null) {
+            return GoalView.NOT_SEEN;
+        }
+        boolean partnerDecides = own == null
+                || (other != null && other.observedNanoTime > own.observedNanoTime
+                && other.isFacingAway() == own.isFacingAway());
+        if (partnerDecides) {
+            return other.isFacingAway() ? GoalView.OPEN : GoalView.FACING_DOWN;
+        }
+        return own.isFacingAway() ? GoalView.FACING_DOWN : GoalView.OPEN;
+    }
+
+    public static String partnerOf(String shortName) {
+        if (CLUSTER_RED_SCORING.equals(shortName)) {
+            return CLUSTER_RED_AUDIENCE;
+        }
+        if (CLUSTER_RED_AUDIENCE.equals(shortName)) {
+            return CLUSTER_RED_SCORING;
+        }
+        if (CLUSTER_BLUE_SCORING.equals(shortName)) {
+            return CLUSTER_BLUE_AUDIENCE;
+        }
+        if (CLUSTER_BLUE_AUDIENCE.equals(shortName)) {
+            return CLUSTER_BLUE_SCORING;
+        }
+        return null;
+    }
+
+    public Sighting latest(String shortName) {
+        return latestByCluster.get(shortName);
+    }
+
+    public String candidateSummary(Alliance alliance) {
+        return describeCandidate(alliance.firstCluster) + "   |   " + describeCandidate(alliance.secondCluster);
+    }
+
+    public String cameraState() {
+        if (visionPortal == null) {
+            return "NO CAMERA";
+        }
+        try {
+            return String.format("%s  %.1f FPS", visionPortal.getCameraState(), visionPortal.getFps());
+        } catch (Exception e) {
+            return "state unavailable";
+        }
+    }
+
+    public long updateCount() {
+        return updateCount;
+    }
+
+    public long clusterFrameCount() {
+        return clusterFrameCount;
+    }
+
+    public void close() {
+        if (visionPortal != null) {
+            try {
+                visionPortal.close();
+            } catch (Exception e) {
+                fault = "close failed: " + e.getClass().getSimpleName();
+            }
+            visionPortal = null;
+        }
+        aprilTag = null;
+    }
+
+    private Sighting usableSighting(String shortName) {
+        Sighting sighting = latestByCluster.get(shortName);
+        if (sighting == null || !sighting.isUsable()) {
+            return null;
+        }
+        return sighting;
+    }
+
+    private String describeCandidate(String shortName) {
+        Sighting sighting = latestByCluster.get(shortName);
+        if (sighting == null) {
+            return shortName + " never seen";
+        }
+        String flag = "";
+        if (!sighting.isFresh()) {
+            flag = " STALE";
+        } else if (!sighting.isStrongEnough()) {
+            flag = String.format(" WEAK<%d%%", MIN_PERCENT_CLUSTER_FOUND);
+        }
+        return String.format("%s %d%% %.0fin %dms%s", shortName, sighting.percentClusterFound,
+                sighting.range, sighting.ageMs(), flag);
+    }
+}
