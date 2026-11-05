@@ -16,6 +16,7 @@ import com.pedropathing.revhub.localizers.PinpointLocalizer;
 import com.qualcomm.hardware.gobilda.GoBildaPinpointDriver;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
@@ -25,24 +26,53 @@ public class Constants {
     public static final String BACK_LEFT_MOTOR_NAME = "left_back";
     public static final String FRONT_RIGHT_MOTOR_NAME = "right_front";
     public static final String BACK_RIGHT_MOTOR_NAME = "right_back";
-    public static final String LAUNCHER = "launcher";
-    public static final String LAUNCHER_TWO = "launcher2";
-    public static final String TRANSFER = "transfer";
     public static final String INTAKE = "intake";
-    public static final String SERVO_ONE ="intake_servo";
-    public static final String SERVO_TWO ="outtake_servo";
-    public static final String SERVO_THREE ="blocker";
+    public static final String TRANSFER = "transfer";
+    public static final String OUTTAKE = "outtake";
+    public static final String FLOWER_INTAKE = "flower_intake";
+    public static final String OUTTAKE_BLOCKER = "outtake_blocker";
+    public static final String WEBCAM = "Webcam 1";
+    public static final String IMU_NAME = "imu";
 
-    private static final DcMotorSimple.Direction FRONT_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction BACK_LEFT_DIRECTION = DcMotorSimple.Direction.FORWARD;
-    private static final DcMotorSimple.Direction FRONT_RIGHT_DIRECTION = DcMotorSimple.Direction.REVERSE;
-    private static final DcMotorSimple.Direction BACK_RIGHT_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    public static final DcMotorSimple.Direction LEFT_SIDE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    public static final DcMotorSimple.Direction RIGHT_SIDE_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    public static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
+    public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+
+    public static final double INTAKE_POWER = 1.0;
+    public static final double TRANSFER_POWER = 1.0;
+
+    public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
+    public static final int FLOWER_START_INDEX = 0;
+
+    private static final double SERVO_RANGE_DEGREES = 270.0;
+    private static final double BLOCKER_CENTER_POSITION = 0.5;
+    private static final double BLOCKER_START_TURN_DEGREES = -135.0;
+    private static final double BLOCKER_TURN_DEGREES = 50.0;
+    public static final double BLOCKER_CLOSED_POSITION =
+            Range.clip(BLOCKER_CENTER_POSITION + BLOCKER_START_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
+    public static final double BLOCKER_OPEN_POSITION =
+            Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
+
+    public static final double SHOOTER_HEADING_OFFSET_DEGREES = 0.0;
+    public static final double MAX_GOAL_ENTRY_ANGLE_DEGREES = 90.0;
+    public static final double AIM_KP = 1.5;
+    public static final double AIM_MIN_TURN_POWER = 0.06;
+    public static final double AIM_MAX_TURN_POWER = 0.6;
+    public static final double AIM_TOLERANCE_DEGREES = 2.0;
+    public static final double AIM_SETTLE_SECONDS = 0.15;
+
+    public static final boolean GOAL_CHECK_CALIBRATED = false;
+    public static final double CAMERA_ROLL_OFFSET_DEGREES = 0.0;
+    public static final double GOAL_UP_MAX_ABS_ROLL_DEGREES = 90.0;
+    public static final boolean BLOCK_SHOT_WHEN_GOAL_NOT_SEEN = false;
+    public static final double GOAL_OPEN_WAIT_SECONDS = 1.5;
 
     private static final boolean MANUAL_BRAKE_MODE = true;
     private static final double POWER_THRESHOLD = 0.01;
 
     public static final String PINPOINT_NAME = "pinpoint_left";
-    public static final String SECONDARY_PINPOINT_NAME = "pinpoint_right";
 
     private static final double PINPOINT_X_POD_OFFSET_MM = -84.0;
     private static final double PINPOINT_Y_POD_OFFSET_MM = -168.0;
@@ -82,10 +112,10 @@ public class Constants {
             c.backLeftName.set(BACK_LEFT_MOTOR_NAME);
             c.frontRightName.set(FRONT_RIGHT_MOTOR_NAME);
             c.backRightName.set(BACK_RIGHT_MOTOR_NAME);
-            c.frontLeftDirection.set(FRONT_LEFT_DIRECTION);
-            c.backLeftDirection.set(BACK_LEFT_DIRECTION);
-            c.frontRightDirection.set(FRONT_RIGHT_DIRECTION);
-            c.backRightDirection.set(BACK_RIGHT_DIRECTION);
+            c.frontLeftDirection.set(LEFT_SIDE_DIRECTION);
+            c.backLeftDirection.set(LEFT_SIDE_DIRECTION);
+            c.frontRightDirection.set(RIGHT_SIDE_DIRECTION);
+            c.backRightDirection.set(RIGHT_SIDE_DIRECTION);
             c.manualBrakeMode.set(MANUAL_BRAKE_MODE);
             c.powerThreshold.set(POWER_THRESHOLD);
         });
@@ -127,7 +157,7 @@ public class Constants {
         return new Mecanum(hardwareMap, mecanumConfig());
     }
 
-    public static PinpointLocalizer createLocalizer(HardwareMap hardwareMap) {
+    public static Localizer createLocalizer(HardwareMap hardwareMap) {
         return new PinpointLocalizer(hardwareMap, pinpointConfig());
     }
 
