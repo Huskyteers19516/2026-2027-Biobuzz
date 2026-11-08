@@ -1,4 +1,71 @@
-package org.firstinspires.ftc.teamtestcode.other.autodesign;
+package org.firstinspires.ftc.teamcode.opmode.auto;
+
+import com.pedropathing.api.Paths;
+import com.pedropathing.math.Pose;
+
+import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
+import com.qualcomm.robotcore.hardware.DcMotor;
+
+import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+
+@Autonomous(name = "Frank Auto", group = "Auto")
+public class FrankAuto extends LinearOpMode {
+
+    private DcMotor frontLeft, frontRight, backLeft, backRight;
+
+
+    private static final double FORWARD_INCHES = 0.0;
+
+    @Override
+    public void runOpMode() throws InterruptedException {
+
+        frontLeft = hardwareMap.get(DcMotor.class, "left_front");
+        frontRight = hardwareMap.get(DcMotor.class, "right_front");
+        backLeft = hardwareMap.get(DcMotor.class, "left_back");
+        backRight = hardwareMap.get(DcMotor.class, "right_back");
+
+        follower follower = Constants.createFollower(hardwareMap);
+
+        Pose start = new Pose(0.0, 0.0, Math.toRadians(0.0));
+        follower.setPose(start);
+
+        telemetry.addData("Forward distance (inches)", FORWARD_INCHES);
+        telemetry.addLine("Zero distance means no movement.");
+        telemetry.update();
+
+        waitForStart();
+
+        if (isStopRequested() || FORWARD_INCHES <= 0.0) {
+            return;
+        }
+
+        Pose end = new Pose(
+                FORWARD_INCHES, 0.0, Math.toRadians(0.0));
+
+        try{
+            follower.follow(Paths.line(start, end).constant(start));
+
+            resetRuntime();
+
+            while (opModeIsActive()
+                    && follower.isBusy()
+                    && getRuntime() < 10) {
+
+                follower.update();
+                idle();
+            }
+        } finally {
+            frontLeft.setPower(0.0);
+            frontRight.setPower(0.0);
+            backLeft.setPower(0.0);
+            backRight.setPower(0.0);
+        }
+    }
+}
+
+
+package org.firstinspires.ftc.teamtestcode.autodesign;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -92,69 +159,5 @@ public class FrankDriveControl extends LinearOpMode {
 
         emergencyStopped = false;
         stopDrive();
-    }
-
-    private void configureMotor(DcMotor motor, DcMotorSimple.Direction direction) {
-        motor.setDirection(direction);
-        motor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        motor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        motor.setPower(0.0);
-    }
-
-    private void drive(double forward, double strafe, double turn, double speed, double dt) {
-        double frontLeftTarget = forward + strafe + turn;
-        double backLeftTarget = forward - strafe + turn;
-        double frontRightTarget = forward - strafe - turn;
-        double backRightTarget = forward + strafe - turn;
-
-        double max = Math.max(1.0, Math.max(
-                Math.max(Math.abs(frontLeftTarget), Math.abs(backLeftTarget)),
-                Math.max(Math.abs(frontRightTarget), Math.abs(backRightTarget))));
-
-        double maxChange = POWER_CHANGE_PER_SECOND * dt;
-        appliedFrontLeft = rampToward(appliedFrontLeft, frontLeftTarget / max * speed, maxChange);
-        appliedBackLeft = rampToward(appliedBackLeft, backLeftTarget / max * speed, maxChange);
-        appliedFrontRight = rampToward(appliedFrontRight, frontRightTarget / max * speed, maxChange);
-        appliedBackRight = rampToward(appliedBackRight, backRightTarget / max * speed, maxChange);
-
-        frontLeft.setPower(appliedFrontLeft);
-        backLeft.setPower(appliedBackLeft);
-        frontRight.setPower(appliedFrontRight);
-        backRight.setPower(appliedBackRight);
-    }
-
-    private double rampToward(double current, double target, double maxChange) {
-        return current + Range.clip(target - current, -maxChange, maxChange);
-    }
-
-    private void stopDrive() {
-        appliedFrontLeft = 0.0;
-        appliedFrontRight = 0.0;
-        appliedBackLeft = 0.0;
-        appliedBackRight = 0.0;
-        if (frontLeft != null) frontLeft.setPower(0.0);
-        if (frontRight != null) frontRight.setPower(0.0);
-        if (backLeft != null) backLeft.setPower(0.0);
-        if (backRight != null) backRight.setPower(0.0);
-    }
-
-    private boolean sticksCentered() {
-        return applyDeadband(gamepad1.left_stick_x) == 0.0
-                && applyDeadband(gamepad1.left_stick_y) == 0.0
-                && applyDeadband(gamepad1.right_stick_x) == 0.0;
-    }
-
-    private double applyDeadband(double value) {
-        if (Math.abs(value) <= STICK_DEADBAND) return 0.0;
-        double scaled = (Math.abs(value) - STICK_DEADBAND) / (1.0 - STICK_DEADBAND);
-        return Math.copySign(Range.clip(scaled, 0.0, 1.0), value);
-    }
-
-    private void displayStatus(double speed) {
-        telemetry.addData("Emergency stop", emergencyStopped ? "LATCHED - center sticks, press A" : "off");
-        telemetry.addData("Speed limit", "%.2f", speed);
-        telemetry.addData("Front L / R", "%.2f / %.2f", appliedFrontLeft, appliedFrontRight);
-        telemetry.addData("Back  L / R", "%.2f / %.2f", appliedBackLeft, appliedBackRight);
-        telemetry.update();
     }
 }
