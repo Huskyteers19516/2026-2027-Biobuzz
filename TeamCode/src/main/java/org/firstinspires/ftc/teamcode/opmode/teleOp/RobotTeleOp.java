@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.opmode.teleOp;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.math.Pose;
 import com.pedropathing.localization.Localizer;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
@@ -15,20 +16,22 @@ import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.GoalAim;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
+import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+@Configurable
 @TeleOp(name = "Robot TeleOp", group = "Testing")
 public class RobotTeleOp extends OpMode {
 
-    private static final double SLOW_SCALE = 0.35;
+    public static double SLOW_SCALE = 0.35;
     private static final double STICK_DEADZONE = 0.05;
     private static final double TRIGGER_PRESS_THRESHOLD = 0.5;
     private static final double TRIGGER_RELEASE_THRESHOLD = 0.3;
 
-    private static final double TELEOP_INTAKE_POWER = 0.8;
-    private static final double INTAKE_REVERSE_POWER = -1.0;
+    public static double TELEOP_INTAKE_POWER = 0.8;
+    public static double INTAKE_REVERSE_POWER = -1.0;
 
-    private static final double OUTTAKE_SMALL_STEP = 100.0;
+    public static double OUTTAKE_SMALL_STEP = 100.0;
     private static final double OUTTAKE_BIG_STEP = 500.0;
     private static final int READY_RUMBLE_MS = 200;
     private static final double MAX_VELOCITY_TRIM = Launcher.MAX_TARGET_VELOCITY - Launcher.MIN_TARGET_VELOCITY;
@@ -130,6 +133,7 @@ public class RobotTeleOp extends OpMode {
         }
 
         Pose pose = updatePose();
+        PanelsBridge.drawRobot(pose);
         telemetry.addData("Status", "Init - nothing is commanded until START");
         telemetry.addData("ALLIANCE", "%s   (gp1 X = BLUE, B = RED)", alliance);
         telemetry.addData("Pose source", poseFromAuto ? "end of auto" : "start pose - put the robot on it, gp1 BACK = re-zero");
@@ -170,6 +174,7 @@ public class RobotTeleOp extends OpMode {
             resetPose();
         }
         Pose pose = updatePose();
+        PanelsBridge.drawRobot(pose);
         scanner.update();
 
         boolean slowTogglePressed = gamepad1.leftStickButtonWasPressed();

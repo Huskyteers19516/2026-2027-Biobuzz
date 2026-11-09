@@ -10,6 +10,7 @@ import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.GoalAim;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
+import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 public abstract class ParkAuto extends LinearOpMode {
@@ -56,6 +57,7 @@ public abstract class ParkAuto extends LinearOpMode {
                 follower.setPose(GoalAim.startPose(alliance));
             }
             follower.localizer.update();
+            PanelsBridge.drawRobot(follower.pose());
 
             telemetry.addLine(routeName());
             telemetry.addData("ALLIANCE", "%s   (X = BLUE, B = RED)", alliance);
@@ -114,6 +116,7 @@ public abstract class ParkAuto extends LinearOpMode {
             follower.hold(reachedAll ? park : follower.pose());
             while (opModeIsActive()) {
                 follower.update();
+                PanelsBridge.drawRobot(follower.pose());
                 telemetry.addData("Status", "%s - holding", stopReason);
                 telemetry.addData("Alliance", alliance);
                 telemetry.addData("Last result", lastResult);
@@ -143,6 +146,7 @@ public abstract class ParkAuto extends LinearOpMode {
                     break;
                 }
                 follower.update();
+                PanelsBridge.drawRobot(follower.pose());
                 addDriveTelemetry(label, target, timer, timeoutSeconds, "turning in place");
             }
         } else {
@@ -153,6 +157,7 @@ public abstract class ParkAuto extends LinearOpMode {
                     break;
                 }
                 follower.update();
+                PanelsBridge.drawRobot(follower.pose());
                 addDriveTelemetry(label, target, timer, timeoutSeconds, "following");
             }
         }

@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.api.Paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
@@ -11,12 +12,14 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
+import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
+@Configurable
 @Autonomous(name = "Match Auto", group = "Auto")
 public class MatchAuto extends LinearOpMode {
 
@@ -155,8 +158,8 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private static final double MAX_ACTION_SECONDS = 8.0;
-    private static final double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
-    private static final double TURN_TOLERANCE_DEGREES = 2.0;
+    public static double SETTLE_SECONDS_BEFORE_SHOOT = 0.2;
+    public static double TURN_TOLERANCE_DEGREES = 2.0;
 
     private static final double AUTONOMOUS_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
     private static final double MIN_PATH_LENGTH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
@@ -242,6 +245,7 @@ public class MatchAuto extends LinearOpMode {
                 }
 
                 follower.localizer.update();
+                PanelsBridge.drawRobot(follower.pose());
                 scanner.update();
                 telemetry.addLine("Match Auto");
                 telemetry.addData("ALLIANCE", "%s   (X = BLUE, B = RED)", alliance);
@@ -362,6 +366,7 @@ public class MatchAuto extends LinearOpMode {
 
     private void tick() {
         follower.update();
+        PanelsBridge.drawRobot(follower.pose());
         scanner.update();
         launcher.update();
     }

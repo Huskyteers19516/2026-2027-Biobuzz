@@ -1,6 +1,7 @@
 package org.firstinspires.ftc.teamtestcode.functiontest.pedropathing;
 
 import org.firstinspires.ftc.teamtestcode.other.pedropathing.Constants;
+import org.firstinspires.ftc.teamtestcode.panels.PanelsBridge;
 
 import com.pedropathing.math.Pose;
 import com.pedropathing.revhub.localizers.PinpointLocalizer;
@@ -51,6 +52,7 @@ public class PedroPinpointPoseTest extends OpMode {
 
     private void addPoseTelemetry() {
         Pose pose = localizer.pose();
+        PanelsBridge.drawRobot(pose);
         telemetry.addData("X (in)", "%.2f", pose.x());
         telemetry.addData("Y (in)", "%.2f", pose.y());
         telemetry.addData("Heading (deg, CCW +)", "%.1f", Math.toDegrees(pose.heading()));

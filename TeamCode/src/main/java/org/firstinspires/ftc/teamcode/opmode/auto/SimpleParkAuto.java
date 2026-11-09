@@ -4,6 +4,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.IMU_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.math.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
@@ -18,11 +19,13 @@ import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.FieldPointsBlue;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
+import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
 import java.util.List;
 
+@Configurable
 @Autonomous(name = "Simple Park Auto", group = "Meet0")
 public class SimpleParkAuto extends LinearOpMode {
 
@@ -62,14 +65,14 @@ public class SimpleParkAuto extends LinearOpMode {
 
     private static final double PARK_TIMEOUT_SECONDS = 10.0;
 
-    private static final double DRIVE_KP = 0.05;
-    private static final double TURN_KP = 0.02;
-    private static final double MIN_DRIVE_POWER = 0.12;
-    private static final double MAX_DRIVE_POWER = 0.5;
-    private static final double MIN_TURN_POWER = 0.10;
-    private static final double MAX_TURN_POWER = 0.4;
-    private static final double POSITION_TOLERANCE_INCHES = 1.0;
-    private static final double HEADING_TOLERANCE_DEGREES = 2.0;
+    public static double DRIVE_KP = 0.05;
+    public static double TURN_KP = 0.02;
+    public static double MIN_DRIVE_POWER = 0.12;
+    public static double MAX_DRIVE_POWER = 0.5;
+    public static double MIN_TURN_POWER = 0.10;
+    public static double MAX_TURN_POWER = 0.4;
+    public static double POSITION_TOLERANCE_INCHES = 1.0;
+    public static double HEADING_TOLERANCE_DEGREES = 2.0;
 
     private static final double STALL_SECONDS = 0.5;
     private static final int STALL_TICKS = 20;
@@ -135,6 +138,7 @@ public class SimpleParkAuto extends LinearOpMode {
             }
 
             odometry.update();
+            PanelsBridge.drawRobot(odometry.x(), odometry.y(), odometry.lastHeading());
             launcher.sense();
             telemetry.addLine("Simple Park Auto - wheel encoders + IMU, no odometry");
             telemetry.addData("ALLIANCE", "%s   (gamepad1 A = BLUE, B = RED)", alliance);
@@ -279,6 +283,7 @@ public class SimpleParkAuto extends LinearOpMode {
             launcher.update();
 
             double heading = odometry.heading();
+            PanelsBridge.drawRobot(odometry.x(), odometry.y(), heading);
             double errorX = step.to.x() - odometry.x();
             double errorY = step.to.y() - odometry.y();
             double distance = Math.hypot(errorX, errorY);
@@ -399,6 +404,7 @@ public class SimpleParkAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (canRun() && timer.seconds() < seconds) {
             odometry.update();
+            PanelsBridge.drawRobot(odometry.x(), odometry.y(), odometry.lastHeading());
             launcher.update();
             blocker.setPosition(open ? Constants.BLOCKER_OPEN_POSITION : Constants.BLOCKER_CLOSED_POSITION);
             if (stopWhenReady && launcher.isReady()) {
@@ -428,6 +434,7 @@ public class SimpleParkAuto extends LinearOpMode {
         ElapsedTime timer = new ElapsedTime();
         while (canRun() && timer.seconds() < seconds) {
             odometry.update();
+            PanelsBridge.drawRobot(odometry.x(), odometry.y(), odometry.lastHeading());
             launcher.update();
             telemetry.addData("Step", label);
             telemetry.addData("Phase", phase);

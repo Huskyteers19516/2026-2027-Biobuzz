@@ -754,21 +754,21 @@ public class LauncherStabilityTest extends OpMode {
 
     private void showCopyBlock() {
         List<String> lines = new ArrayList<>();
-        addIfChanged(lines, "DEFAULT_TARGET_VELOCITY", launcher.targetVelocity(), Launcher.DEFAULT_TARGET_VELOCITY, "%.1f");
-        addIfChanged(lines, "DEFAULT_KP", launcher.kP, Launcher.DEFAULT_KP, "%.5f");
-        addIfChanged(lines, "DEFAULT_KI", launcher.kI, Launcher.DEFAULT_KI, "%.5f");
-        addIfChanged(lines, "DEFAULT_KV", launcher.kV, Launcher.DEFAULT_KV, "%.7f");
-        addIfChanged(lines, "DEFAULT_KS", launcher.kS, Launcher.DEFAULT_KS, "%.4f");
-        addIfChanged(lines, "DEFAULT_READY_TOLERANCE", launcher.readyTolerance, Launcher.DEFAULT_READY_TOLERANCE, "%.1f");
-        addIfChanged(lines, "DEFAULT_READY_STABLE_SECONDS", launcher.readyStableSeconds, Launcher.DEFAULT_READY_STABLE_SECONDS, "%.2f");
-        addIfChanged(lines, "DEFAULT_SHOT_DETECT_DROP", launcher.shotDetectDrop, Launcher.DEFAULT_SHOT_DETECT_DROP, "%.1f");
-        addIfChanged(lines, "DEFAULT_FEED_MAX_SECONDS", launcher.feedMaxSeconds, Launcher.DEFAULT_FEED_MAX_SECONDS, "%.2f");
-        addIfChanged(lines, "DEFAULT_FEED_TRANSFER_POWER", launcher.feedTransferPower, Launcher.DEFAULT_FEED_TRANSFER_POWER, "%.2f");
-        addIfChanged(lines, "DEFAULT_PENDING_STAGING_POWER", launcher.pendingStagingPower, Launcher.DEFAULT_PENDING_STAGING_POWER, "%.2f");
-        addIfChanged(lines, "DEFAULT_BLOCKER_CLOSE_SECONDS", launcher.blockerCloseSeconds, Launcher.DEFAULT_BLOCKER_CLOSE_SECONDS, "%.2f");
-        addIfChanged(lines, "DEFAULT_FEED_SETPOINT_BOOST", launcher.feedSetpointBoost, Launcher.DEFAULT_FEED_SETPOINT_BOOST, "%.1f");
-        addIfChanged(lines, "RECOVERY_BOOST_ENTER", launcher.recoveryBoostEnter, Launcher.RECOVERY_BOOST_ENTER, "%.1f");
-        addIfChanged(lines, "RECOVERY_BOOST_EXIT", launcher.recoveryBoostExit, Launcher.RECOVERY_BOOST_EXIT, "%.1f");
+        addIfChanged(lines, "DEFAULT_TARGET_VELOCITY", launcher.targetVelocity(), Launcher.SOURCE_DEFAULT_TARGET_VELOCITY, "%.1f");
+        addIfChanged(lines, "DEFAULT_KP", launcher.kP, Launcher.SOURCE_DEFAULT_KP, "%.5f");
+        addIfChanged(lines, "DEFAULT_KI", launcher.kI, Launcher.SOURCE_DEFAULT_KI, "%.5f");
+        addIfChanged(lines, "DEFAULT_KV", launcher.kV, Launcher.SOURCE_DEFAULT_KV, "%.7f");
+        addIfChanged(lines, "DEFAULT_KS", launcher.kS, Launcher.SOURCE_DEFAULT_KS, "%.4f");
+        addIfChanged(lines, "DEFAULT_READY_TOLERANCE", launcher.readyTolerance, Launcher.SOURCE_DEFAULT_READY_TOLERANCE, "%.1f");
+        addIfChanged(lines, "DEFAULT_READY_STABLE_SECONDS", launcher.readyStableSeconds, Launcher.SOURCE_DEFAULT_READY_STABLE_SECONDS, "%.2f");
+        addIfChanged(lines, "DEFAULT_SHOT_DETECT_DROP", launcher.shotDetectDrop, Launcher.SOURCE_DEFAULT_SHOT_DETECT_DROP, "%.1f");
+        addIfChanged(lines, "DEFAULT_FEED_MAX_SECONDS", launcher.feedMaxSeconds, Launcher.SOURCE_DEFAULT_FEED_MAX_SECONDS, "%.2f");
+        addIfChanged(lines, "DEFAULT_FEED_TRANSFER_POWER", launcher.feedTransferPower, Launcher.SOURCE_DEFAULT_FEED_TRANSFER_POWER, "%.2f");
+        addIfChanged(lines, "DEFAULT_PENDING_STAGING_POWER", launcher.pendingStagingPower, Launcher.SOURCE_DEFAULT_PENDING_STAGING_POWER, "%.2f");
+        addIfChanged(lines, "DEFAULT_BLOCKER_CLOSE_SECONDS", launcher.blockerCloseSeconds, Launcher.SOURCE_DEFAULT_BLOCKER_CLOSE_SECONDS, "%.2f");
+        addIfChanged(lines, "DEFAULT_FEED_SETPOINT_BOOST", launcher.feedSetpointBoost, Launcher.SOURCE_DEFAULT_FEED_SETPOINT_BOOST, "%.1f");
+        addIfChanged(lines, "RECOVERY_BOOST_ENTER", launcher.recoveryBoostEnter, Launcher.SOURCE_RECOVERY_BOOST_ENTER, "%.1f");
+        addIfChanged(lines, "RECOVERY_BOOST_EXIT", launcher.recoveryBoostExit, Launcher.SOURCE_RECOVERY_BOOST_EXIT, "%.1f");
         if (launcher.recoveryBoost != Launcher.DEFAULT_RECOVERY_BOOST) {
             lines.add("DEFAULT_RECOVERY_BOOST = " + launcher.recoveryBoost + ";");
         }

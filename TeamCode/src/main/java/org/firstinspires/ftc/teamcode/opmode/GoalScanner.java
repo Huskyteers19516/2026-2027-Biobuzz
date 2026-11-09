@@ -2,6 +2,7 @@ package org.firstinspires.ftc.teamcode.opmode;
 
 import android.util.Size;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
@@ -18,6 +19,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+@Configurable
 public class GoalScanner {
 
     public static final int CAMERA_WIDTH = 640;
@@ -25,16 +27,16 @@ public class GoalScanner {
     public static final float DECIMATION = 2.0f;
     public static final boolean LIVE_VIEW = false;
 
-    public static final long SIGHTING_FRESHNESS_MS = 250L;
+    public static long SIGHTING_FRESHNESS_MS = 250L;
     public static final long RECENCY_PREFERENCE_MS = 50L;
-    public static final int MIN_PERCENT_CLUSTER_FOUND = 50;
+    public static int MIN_PERCENT_CLUSTER_FOUND = 50;
 
     public static final String CLUSTER_RED_SCORING = "RED SCORING";
     public static final String CLUSTER_RED_AUDIENCE = "RED AUDIENCE";
     public static final String CLUSTER_BLUE_AUDIENCE = "BLUE AUDIENCE";
     public static final String CLUSTER_BLUE_SCORING = "BLUE SCORING";
 
-    public static final long VIEW_MEMORY_MS = 1000L;
+    public static long VIEW_MEMORY_MS = 1000L;
 
     public enum GoalView { NOT_SEEN, OPEN, FACING_DOWN }
 

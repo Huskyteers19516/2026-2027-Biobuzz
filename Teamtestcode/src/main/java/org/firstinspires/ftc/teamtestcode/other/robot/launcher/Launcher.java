@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamtestcode.other.robot.launcher;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.hardware.lynx.LynxModule;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -16,28 +17,29 @@ import org.firstinspires.ftc.teamtestcode.other.robot.pedroPathing.Constants;
 import java.util.ArrayList;
 import java.util.List;
 
+@Configurable
 public class Launcher {
 
     public enum ControlMode { CUSTOM, HUB_PIDF }
 
     public enum State { OFF, SPINNING_UP, READY, FEEDING, CLOSING, RECOVERING, MANUAL_OPEN }
 
-    public static final double DEFAULT_TARGET_VELOCITY = 1600.0;
+    public static double DEFAULT_TARGET_VELOCITY = 1600.0;
     public static final double MIN_TARGET_VELOCITY = 500.0;
     public static final double MAX_TARGET_VELOCITY = 2800.0;
 
     public static final ControlMode DEFAULT_CONTROL_MODE = ControlMode.CUSTOM;
     public static final double NOMINAL_VOLTAGE = 12.0;
-    public static final double DEFAULT_KS = 0.04;
-    public static final double DEFAULT_KV = 1.0 / 2600.0;
-    public static final double DEFAULT_KP = 0.0015;
-    public static final double DEFAULT_KI = 0.0005;
-    public static final double INTEGRAL_ZONE = 100.0;
-    public static final double INTEGRAL_LIMIT = 0.15;
+    public static double DEFAULT_KS = 0.04;
+    public static double DEFAULT_KV = 1.0 / 2600.0;
+    public static double DEFAULT_KP = 0.0015;
+    public static double DEFAULT_KI = 0.0005;
+    public static double INTEGRAL_ZONE = 100.0;
+    public static double INTEGRAL_LIMIT = 0.15;
 
     public static final boolean DEFAULT_RECOVERY_BOOST = true;
-    public static final double RECOVERY_BOOST_ENTER = 100.0;
-    public static final double RECOVERY_BOOST_EXIT = 70.0;
+    public static double RECOVERY_BOOST_ENTER = 100.0;
+    public static double RECOVERY_BOOST_EXIT = 70.0;
 
     public static final boolean HUB_OVERRIDE_PIDF = false;
     public static final double HUB_P = 10.0;
@@ -45,31 +47,47 @@ public class Launcher {
     public static final double HUB_D = 0.0;
     public static final double HUB_F = 0.0;
 
-    public static final double DEFAULT_READY_TOLERANCE = 40.0;
-    public static final double DEFAULT_READY_STABLE_SECONDS = 0.12;
-    public static final double DEFAULT_SHOT_DETECT_DROP = 60.0;
+    public static double DEFAULT_READY_TOLERANCE = 40.0;
+    public static double DEFAULT_READY_STABLE_SECONDS = 0.12;
+    public static double DEFAULT_SHOT_DETECT_DROP = 60.0;
     public static final int SHOT_DETECT_SAMPLES = 2;
-    public static final double DEFAULT_FEED_MAX_SECONDS = 0.8;
+    public static double DEFAULT_FEED_MAX_SECONDS = 0.8;
     public static final double MIN_FIRE_VELOCITY = 300.0;
     public static final double TELEOP_QUEUE_EXPIRE_SECONDS = 3.0;
     public static final int BURST_SIZE = 3;
-    public static final double DEFAULT_PENDING_STAGING_POWER = 0.4;
-    public static final double DEFAULT_BLOCKER_CLOSE_SECONDS = 0.15;
-    public static final double DEFAULT_FEED_TRANSFER_POWER = 1.0;
-    public static final double DEFAULT_FEED_SETPOINT_BOOST = 0.0;
-    public static final double DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS = 0.3;
+    public static double DEFAULT_PENDING_STAGING_POWER = 0.4;
+    public static double DEFAULT_BLOCKER_CLOSE_SECONDS = 0.15;
+    public static double DEFAULT_FEED_TRANSFER_POWER = 1.0;
+    public static double DEFAULT_FEED_SETPOINT_BOOST = 0.0;
+    public static double DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS = 0.3;
 
-    public static final double AUTO_READY_TIMEOUT_SECONDS = 2.5;
-    public static final double AUTO_SHOT_TIMEOUT_SECONDS = 4.0;
-    public static final double PULSE_SPINUP_SECONDS = 2.5;
-    public static final double PULSE_OPEN_SECONDS = 0.4;
-    public static final double PULSE_RECOVER_SECONDS = 1.0;
+    public static double AUTO_READY_TIMEOUT_SECONDS = 2.5;
+    public static double AUTO_SHOT_TIMEOUT_SECONDS = 4.0;
+    public static double PULSE_SPINUP_SECONDS = 2.5;
+    public static double PULSE_OPEN_SECONDS = 0.4;
+    public static double PULSE_RECOVER_SECONDS = 1.0;
     public static final double PULSE_TRANSFER_POWER = 1.0;
     public static final double PULSE_INTAKE_POWER = 1.0;
     public static final boolean AUTO_KEEP_SPINNING = false;
     public static final double AUTO_FEED_INTAKE_POWER = 1.0;
-    public static final double AUTO_STAGING_TRANSFER_POWER = 0.4;
+    public static double AUTO_STAGING_TRANSFER_POWER = 0.4;
     public static final int AUTO_EXTRA_ATTEMPTS = 2;
+
+    public static final double SOURCE_DEFAULT_TARGET_VELOCITY = DEFAULT_TARGET_VELOCITY;
+    public static final double SOURCE_DEFAULT_KP = DEFAULT_KP;
+    public static final double SOURCE_DEFAULT_KI = DEFAULT_KI;
+    public static final double SOURCE_DEFAULT_KV = DEFAULT_KV;
+    public static final double SOURCE_DEFAULT_KS = DEFAULT_KS;
+    public static final double SOURCE_DEFAULT_READY_TOLERANCE = DEFAULT_READY_TOLERANCE;
+    public static final double SOURCE_DEFAULT_READY_STABLE_SECONDS = DEFAULT_READY_STABLE_SECONDS;
+    public static final double SOURCE_DEFAULT_SHOT_DETECT_DROP = DEFAULT_SHOT_DETECT_DROP;
+    public static final double SOURCE_DEFAULT_FEED_MAX_SECONDS = DEFAULT_FEED_MAX_SECONDS;
+    public static final double SOURCE_DEFAULT_FEED_TRANSFER_POWER = DEFAULT_FEED_TRANSFER_POWER;
+    public static final double SOURCE_DEFAULT_PENDING_STAGING_POWER = DEFAULT_PENDING_STAGING_POWER;
+    public static final double SOURCE_DEFAULT_BLOCKER_CLOSE_SECONDS = DEFAULT_BLOCKER_CLOSE_SECONDS;
+    public static final double SOURCE_DEFAULT_FEED_SETPOINT_BOOST = DEFAULT_FEED_SETPOINT_BOOST;
+    public static final double SOURCE_RECOVERY_BOOST_ENTER = RECOVERY_BOOST_ENTER;
+    public static final double SOURCE_RECOVERY_BOOST_EXIT = RECOVERY_BOOST_EXIT;
 
     private static final double VOLTAGE_READ_SECONDS = 0.1;
     private static final double VOLTAGE_FILTER = 0.3;

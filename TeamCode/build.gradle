@@ -28,10 +28,11 @@ android {
 repositories {
     mavenCentral()
     maven { url 'https://repo.dairy.foundation/releases/' }
+    maven { url 'https://mymaven.bylazar.com/releases' }
 }
 
 dependencies {
     implementation project(':FtcRobotController')
-    implementation 'androidx.core:core-ktx:1.19.1'
     implementation 'com.pedropathing:revhub:3.0.1'
+    implementation 'com.bylazar:fullpanels:1.0.20'
 }

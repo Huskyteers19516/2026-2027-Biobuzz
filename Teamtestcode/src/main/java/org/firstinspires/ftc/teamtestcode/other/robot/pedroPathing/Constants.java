@@ -1,5 +1,6 @@
 package org.firstinspires.ftc.teamtestcode.other.robot.pedroPathing;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.algorithm.Algorithm;
 import com.pedropathing.algorithm.Foresight;
 import com.pedropathing.algorithm.ForesightConfig;
@@ -20,6 +21,7 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 
+@Configurable
 public class Constants {
 
     public static final String FRONT_LEFT_MOTOR_NAME = "left_front";
@@ -41,19 +43,19 @@ public class Constants {
     public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.REVERSE;
 
-    public static final double INTAKE_POWER = 1.0;
-    public static final double TRANSFER_POWER = 1.0;
+    public static double INTAKE_POWER = 1.0;
+    public static double TRANSFER_POWER = 1.0;
 
-    public static final double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
+    public static double[] FLOWER_POSITIONS = {0.2, 0.5, 0.8};
     public static final int FLOWER_START_INDEX = 0;
 
     private static final double SERVO_RANGE_DEGREES = 270.0;
     private static final double BLOCKER_CENTER_POSITION = 0.5;
     private static final double BLOCKER_START_TURN_DEGREES = -135.0;
     private static final double BLOCKER_TURN_DEGREES = 50.0;
-    public static final double BLOCKER_CLOSED_POSITION =
+    public static double BLOCKER_CLOSED_POSITION =
             Range.clip(BLOCKER_CENTER_POSITION + BLOCKER_START_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
-    public static final double BLOCKER_OPEN_POSITION =
+    public static double BLOCKER_OPEN_POSITION =
             Range.clip(BLOCKER_CLOSED_POSITION + BLOCKER_TURN_DEGREES / SERVO_RANGE_DEGREES, 0.0, 1.0);
 
     public static final float BALL_SENSOR_GAIN = 10.0f;
@@ -61,19 +63,19 @@ public class Constants {
     public static final double BALL_RELEASE_MARGIN_MM = 10.0;
     public static final int MAX_BALLS = 3;
 
-    public static final double SHOOTER_HEADING_OFFSET_DEGREES = 0.0;
+    public static double SHOOTER_HEADING_OFFSET_DEGREES = 0.0;
     public static final double MAX_GOAL_ENTRY_ANGLE_DEGREES = 90.0;
-    public static final double AIM_KP = 1.5;
-    public static final double AIM_MIN_TURN_POWER = 0.06;
-    public static final double AIM_MAX_TURN_POWER = 0.6;
-    public static final double AIM_TOLERANCE_DEGREES = 2.0;
-    public static final double AIM_SETTLE_SECONDS = 0.15;
+    public static double AIM_KP = 1.5;
+    public static double AIM_MIN_TURN_POWER = 0.06;
+    public static double AIM_MAX_TURN_POWER = 0.6;
+    public static double AIM_TOLERANCE_DEGREES = 2.0;
+    public static double AIM_SETTLE_SECONDS = 0.15;
 
     public static final boolean GOAL_CHECK_CALIBRATED = false;
-    public static final double CAMERA_ROLL_OFFSET_DEGREES = 0.0;
-    public static final double GOAL_UP_MAX_ABS_ROLL_DEGREES = 90.0;
+    public static double CAMERA_ROLL_OFFSET_DEGREES = 0.0;
+    public static double GOAL_UP_MAX_ABS_ROLL_DEGREES = 90.0;
     public static final boolean BLOCK_SHOT_WHEN_GOAL_NOT_SEEN = false;
-    public static final double GOAL_OPEN_WAIT_SECONDS = 1.5;
+    public static double GOAL_OPEN_WAIT_SECONDS = 1.5;
 
     private static final boolean MANUAL_BRAKE_MODE = true;
     private static final double POWER_THRESHOLD = 0.01;

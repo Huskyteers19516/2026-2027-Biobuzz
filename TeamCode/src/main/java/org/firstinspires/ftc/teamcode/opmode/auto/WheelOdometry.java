@@ -6,6 +6,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_LEFT_M
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_MOTOR_NAME;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.IMU_NAME;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.math.Pose;
 import com.qualcomm.hardware.rev.RevHubOrientationOnRobot;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -16,12 +17,13 @@ import com.qualcomm.robotcore.hardware.IMU;
 import org.firstinspires.ftc.robotcore.external.navigation.AngleUnit;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+@Configurable
 public class WheelOdometry {
 
     public static final double DRIVE_TICKS_PER_REV = 537.7;
     public static final double WHEEL_DIAMETER_INCHES = 104.0 / 25.4;
-    public static final double FORWARD_SCALE = 1.0;
-    public static final double STRAFE_SCALE = 1.0;
+    public static double FORWARD_SCALE = 1.0;
+    public static double STRAFE_SCALE = 1.0;
 
     public static final RevHubOrientationOnRobot.LogoFacingDirection HUB_LOGO_DIRECTION =
             RevHubOrientationOnRobot.LogoFacingDirection.UP;
@@ -109,6 +111,10 @@ public class WheelOdometry {
 
     public double y() {
         return y;
+    }
+
+    public double lastHeading() {
+        return lastHeading;
     }
 
     public double heading() {

@@ -7,6 +7,7 @@ import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.FRONT_RIGHT_
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.INTAKE;
 import static org.firstinspires.ftc.teamcode.pedroPathing.Constants.OUTTAKE_BLOCKER;
 
+import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -18,13 +19,14 @@ import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
+@Configurable
 @Autonomous(name = "Shoot 3 Then Drive", group = "Meet0")
 public class ShootThenDriveAuto extends LinearOpMode {
 
     private static final int SHOTS = 3;
     private static final double SHOOT_TIME_LIMIT_SECONDS = 13.0;
-    private static final double DRIVE_SECONDS = 1.5;
-    private static final double DRIVE_POWER = 0.3;
+    public static double DRIVE_SECONDS = 1.5;
+    public static double DRIVE_POWER = 0.3;
 
     private DcMotor leftFront;
     private DcMotor leftBack;
