@@ -60,6 +60,7 @@ public class Launcher {
     public static double DEFAULT_FEED_TRANSFER_POWER = 1.0;
     public static double DEFAULT_FEED_SETPOINT_BOOST = 0.0;
     public static double DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS = 0.3;
+    public static double DEFAULT_BURST_BOOST = 50.0;
 
     public static double AUTO_READY_TIMEOUT_SECONDS = 2.5;
     public static double AUTO_SHOT_TIMEOUT_SECONDS = 4.0;
@@ -117,6 +118,7 @@ public class Launcher {
         public double kP;
         public double kI;
         public double feedSetpointBoost;
+        public double burstBoost;
         public double readyTolerance;
         public double shotDetectDrop;
         public double feedMaxSeconds;
@@ -179,6 +181,7 @@ public class Launcher {
     private boolean blockerControl = true;
     public double feedSetpointBoost = DEFAULT_FEED_SETPOINT_BOOST;
     public double feedSetpointBoostRampSeconds = DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS;
+    public double burstBoost = DEFAULT_BURST_BOOST;
     public double readyTimeoutSeconds = Double.POSITIVE_INFINITY;
     public double queueExpireSeconds = Double.POSITIVE_INFINITY;
 
@@ -288,6 +291,23 @@ public class Launcher {
 
     public double targetVelocity() {
         return targetVelocity;
+    }
+
+    public boolean burstBoostActive() {
+        if (burstBoost == 0.0) {
+            return false;
+        }
+        if (queuedShots > 0) {
+            return burstSize > 1;
+        }
+        return state == State.FEEDING && activeShot != null && activeShot.burstSize > 1;
+    }
+
+    public double shotTargetVelocity() {
+        if (!burstBoostActive()) {
+            return targetVelocity;
+        }
+        return Range.clip(targetVelocity + burstBoost, MIN_TARGET_VELOCITY, MAX_TARGET_VELOCITY);
     }
 
     public void spinUp() {
@@ -410,7 +430,7 @@ public class Launcher {
         if (encoderFault) {
             ready = now >= faultReadyAt;
         } else {
-            boolean inWindow = Math.abs(measured - targetVelocity) <= readyTolerance;
+            boolean inWindow = Math.abs(measured - shotTargetVelocity()) <= readyTolerance;
             if (!inWindow) {
                 inWindowSince = -1.0;
             } else if (inWindowSince < 0) {
@@ -443,7 +463,7 @@ public class Launcher {
         if (state == State.FEEDING) {
             Shot shot = activeShot;
             double feedTime = now - shot.startTime;
-            double reference = Math.min(shot.preVelocity, targetVelocity);
+            double reference = Math.min(shot.preVelocity, shotTargetVelocity());
             if (!encoderFault && measured <= reference - shotDetectDrop) {
                 detectCount++;
             } else {
@@ -489,7 +509,7 @@ public class Launcher {
         }
 
         boolean canForce = !encoderReversed && targetVelocity >= MIN_FIRE_VELOCITY
-                && measured <= targetVelocity + readyTolerance;
+                && measured <= shotTargetVelocity() + readyTolerance;
         boolean timedOut = wantShot && canForce && now - waitingSince >= readyTimeoutSeconds;
         if (wantShot && fireAllowed && (ready || timedOut)) {
             startFeed(!ready || encoderFault);
@@ -509,7 +529,9 @@ public class Launcher {
         if (activeShot != null && !activeShot.complete) {
             activeShot.complete = true;
         }
-        activeShot = new Shot(shotsAttempted + 1, now, targetVelocity, measured, voltage, forced);
+        double shotTarget = shotTargetVelocity();
+        activeShot = new Shot(shotsAttempted + 1, now, shotTarget, measured, voltage, forced);
+        activeShot.burstBoost = shotTarget - targetVelocity;
         activeShot.mode = controlMode;
         activeShot.recoveryBoost = recoveryBoost;
         activeShot.kS = kS;
@@ -594,7 +616,7 @@ public class Launcher {
                     : Range.clip((now - activeShot.startTime) / feedSetpointBoostRampSeconds, 0.0, 1.0);
             boost = feedSetpointBoost * ramp;
         }
-        commandedVelocity = enabled ? Range.clip(targetVelocity + boost, MIN_TARGET_VELOCITY, MAX_TARGET_VELOCITY) : 0.0;
+        commandedVelocity = enabled ? Range.clip(shotTargetVelocity() + boost, MIN_TARGET_VELOCITY, MAX_TARGET_VELOCITY) : 0.0;
 
         if (openLoopPower != null) {
             commandedVelocity = 0.0;
@@ -858,8 +880,9 @@ public class Launcher {
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Launcher", statusText());
-        telemetry.addData("Velocity", "target %.0f  measured %.0f  error %+.0f",
-                commandedVelocity, measured, commandedVelocity - measured);
+        telemetry.addData("Velocity", "target %.0f  measured %.0f  error %+.0f%s",
+                commandedVelocity, measured, commandedVelocity - measured,
+                burstBoostActive() ? String.format("  (burst +%.0f)", shotTargetVelocity() - targetVelocity) : "");
         if (controlMode == ControlMode.CUSTOM) {
             telemetry.addData("Motor", "power %.2f%s  battery %.1f V",
                     power, boosting ? "  RECOVERY BOOST" : "", voltage);

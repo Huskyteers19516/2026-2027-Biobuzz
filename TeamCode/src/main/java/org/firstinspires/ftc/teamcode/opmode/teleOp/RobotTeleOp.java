@@ -11,7 +11,7 @@ import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.launcher.ShotLog;
-import org.firstinspires.ftc.teamcode.launcher.ShotTable;
+import org.firstinspires.ftc.teamcode.launcher.ShotZones;
 import org.firstinspires.ftc.teamcode.opmode.FieldPoints;
 import org.firstinspires.ftc.teamcode.opmode.GoalAim;
 import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
@@ -223,12 +223,14 @@ public class RobotTeleOp extends OpMode {
         }
 
         GoalAim.Solution aim = pose != null && GoalAim.goalsConfirmed(alliance) ? GoalAim.solveUp(alliance, pose, scanner) : null;
+        GoalAim.Solution shotGoal = aim != null ? aim : pose != null ? GoalAim.solveUp(alliance, pose, scanner) : null;
+        ShotZones.Result zone = shotGoal != null ? ShotZones.lookup(shotGoal.distance) : null;
         boolean aiming = aimHeld && aim != null;
         boolean aligned = updateAlignment(aiming, aim, pose);
         goalView = aiming ? scanner.goalView(aim.goalName) : scanner.facingView(alliance);
         boolean goalBlocked = scanner.blocksShot(goalView);
 
-        double baseVelocity = aim != null ? aim.velocity : Launcher.DEFAULT_TARGET_VELOCITY;
+        double baseVelocity = zone != null ? zone.velocity : Launcher.DEFAULT_TARGET_VELOCITY;
         if (velocityUpPressed) {
             velocityTrim += OUTTAKE_SMALL_STEP;
         }
@@ -309,7 +311,7 @@ public class RobotTeleOp extends OpMode {
 
         flowerIntake.setPosition(Constants.FLOWER_POSITIONS[flowerIndex]);
         launcher.update();
-        updateShotLog(aim);
+        updateShotLog(shotGoal);
 
         boolean ready = launcher.isReady();
         if (ready && !wasReady) {
@@ -317,7 +319,7 @@ public class RobotTeleOp extends OpMode {
         }
         wasReady = ready;
 
-        addTelemetry(pose, aim, aiming, aligned, baseVelocity, intakePower, transferPower);
+        addTelemetry(pose, zone, aiming, aligned, baseVelocity, intakePower, transferPower);
     }
 
     @Override
@@ -420,13 +422,13 @@ public class RobotTeleOp extends OpMode {
         }
     }
 
-    private void updateShotLog(GoalAim.Solution aim) {
+    private void updateShotLog(GoalAim.Solution shotGoal) {
         if (launcher.shotsAttempted() != shotsLogged) {
             shotsLogged = launcher.shotsAttempted();
             Launcher.Shot shot = launcher.lastShot();
             if (shot != null && (shot.detected || launcher.encoderFault())) {
-                lastShotDistance = aim != null ? aim.distance : Double.NaN;
-                lastShotVelocity = shot.target;
+                lastShotDistance = shotGoal != null ? shotGoal.distance : Double.NaN;
+                lastShotVelocity = shot.target - shot.burstBoost;
                 lastShotNumber = shotsLogged;
             }
         }
@@ -464,28 +466,30 @@ public class RobotTeleOp extends OpMode {
         }
         telemetry.addData("Pose", GoalAim.formatPose(pose));
         if (!GoalAim.goalsConfirmed(alliance)) {
-            telemetry.addLine("!! " + alliance + " GOAL POINTS NOT CONFIRMED - auto aim and auto velocity off");
+            telemetry.addLine("!! " + alliance + " GOAL POINTS NOT CONFIRMED - auto aim off (zone velocity still on)");
         } else {
             telemetry.addData("Goal", GoalAim.solveUp(alliance, pose, scanner).summary(pose));
         }
-        String tableProblem = GoalAim.shotTableProblem();
-        if (tableProblem != null) {
-            telemetry.addLine("!! shot table: " + tableProblem);
+        String zonesProblem = GoalAim.shotZonesProblem();
+        if (zonesProblem != null) {
+            telemetry.addLine("!! shot zones: " + zonesProblem);
         } else {
-            telemetry.addData("Shot table", ShotTable.summary());
+            telemetry.addData("Shot zones", ShotZones.summary());
         }
     }
 
-    private void addTelemetry(Pose pose, GoalAim.Solution aim, boolean aiming, boolean aligned,
+    private void addTelemetry(Pose pose, ShotZones.Result zone, boolean aiming, boolean aligned,
                               double baseVelocity, double intakePower, double transferPower) {
         launcher.addTelemetry(telemetry);
         addPoseTelemetry(pose);
         telemetry.addData("Auto aim", aiming ? (aligned ? "ALIGNED" : "TURNING") : "off (hold gp1 RB)");
         telemetry.addData("Goal (camera)", goalViewText());
-        if (aim != null) {
-            telemetry.addData("Velocity", "table %.0f  trim %+.0f", baseVelocity, velocityTrim);
+        if (zone != null) {
+            telemetry.addData("Zone", zone.describe());
+            telemetry.addData("Zone velocity", "%.0f  trim %+.0f  burst +%.0f when firing 3",
+                    baseVelocity, velocityTrim, launcher.burstBoost);
         } else {
-            telemetry.addData("Velocity", "default %.0f  trim %+.0f", baseVelocity, velocityTrim);
+            telemetry.addData("Zone velocity", "no pose - default %.0f  trim %+.0f", baseVelocity, velocityTrim);
         }
         if (Double.isNaN(lastShotDistance)) {
             telemetry.addData("BACK saves", "no shot to save yet");
