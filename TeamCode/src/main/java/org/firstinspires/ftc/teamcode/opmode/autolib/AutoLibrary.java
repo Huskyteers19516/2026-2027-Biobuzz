@@ -37,11 +37,16 @@ import java.util.TreeMap;
 
 public final class AutoLibrary {
 
+
+
+
     private static AutoLibrary instance;
 
     private final Map<Integer, Leg> byNumber = new TreeMap<>();
     private final List<Leg> ordered = new ArrayList<>();
     private String section = "";
+
+    //This is the path for Red team 4 (Brandon): 1, 31, 53, 34, 48, 73
 
     private AutoLibrary() {
         startPaths();
