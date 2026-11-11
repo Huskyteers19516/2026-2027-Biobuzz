@@ -18,6 +18,7 @@ import org.firstinspires.ftc.teamcode.opmode.GoalScanner;
 import org.firstinspires.ftc.teamcode.opmode.PoseHandoff;
 import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
+import com.qualcomm.robotcore.hardware.DcMotorEx;
 
 @Configurable
 @TeleOp(name = "Robot TeleOp", group = "Testing")
@@ -43,6 +44,9 @@ public class RobotTeleOp extends OpMode {
     private DcMotor intake;
     private Servo flowerIntake;
     private Launcher launcher;
+    private DcMotorEx counterwheel;
+    private boolean counterwheelOn = false;
+    public static double counterwheelRatio = 1.5;
     private Localizer localizer;
     private String localizerFault = "";
     private GoalScanner scanner;
@@ -90,7 +94,10 @@ public class RobotTeleOp extends OpMode {
         flowerIntake = hardwareMap.get(Servo.class, Constants.FLOWER_INTAKE);
         launcher = new Launcher(hardwareMap);
         launcher.setQueueExpireSeconds(Launcher.TELEOP_QUEUE_EXPIRE_SECONDS);
-
+        counterwheel = hardwareMap.get(DcMotorEx.class, "counterwheel");
+        counterwheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+        counterwheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        counterwheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
         try {
             localizer = Constants.createLocalizer(hardwareMap);
         } catch (RuntimeException e) {
@@ -108,6 +115,7 @@ public class RobotTeleOp extends OpMode {
         scanner = new GoalScanner(hardwareMap);
 
         telemetry.addData("Outtake velocity", "%.0f ticks/s", () -> launcher.measuredVelocity());
+        telemetry.addData("Counterwheel velocity", "%.0f ticks/s", () -> counterwheel.getVelocity());
     }
 
     @Override
@@ -243,6 +251,9 @@ public class RobotTeleOp extends OpMode {
         }
         velocityTrim = Range.clip(velocityTrim, -MAX_VELOCITY_TRIM, MAX_VELOCITY_TRIM);
         launcher.setTargetVelocity(baseVelocity + velocityTrim);
+        counterwheelOn = launcher.state() != Launcher.State.OFF;
+        double counterwheelTarget = counterwheelOn ? -Range.clip(counterwheelRatio * (baseVelocity + velocityTrim), 0.0, 2800.0) : 0.0;
+        counterwheel.setVelocity(counterwheelTarget);
 
         if (aimHeld && !wasAimHeld) {
             burstThisHold = launcher.queuedShots() > 0 || launcher.isBusy();
@@ -326,6 +337,8 @@ public class RobotTeleOp extends OpMode {
         intake.setPower(0.0);
         launcher.shutdown();
         scanner.close();
+        counterwheel.setVelocity(0.0);
+        counterwheel.setPower(0.0);
     }
 
     private String goalViewText() {
@@ -504,6 +517,8 @@ public class RobotTeleOp extends OpMode {
         telemetry.addData("Slow mode", slowMode ? String.format("ON  %.2f", SLOW_SCALE) : "OFF");
         telemetry.addLine("gp1 RB hold = aim + fire 3   gp1 BACK = re-zero at start pose");
         telemetry.addLine("gp2 RT fire 3   gp2 LT fire 1   gp1 LB cancel   gp2 Y launcher   gp2 X hold = open blocker");
+        telemetry.addData("Counterwheel", "%s  %.0f / %.0f ticks/s",
+        counterwheelOn ? "ON" : "OFF", counterwheel.getVelocity(), counterwheelRatio * (baseVelocity + velocityTrim));
     }
 
     private DcMotor initMotor(String name, boolean left) {
