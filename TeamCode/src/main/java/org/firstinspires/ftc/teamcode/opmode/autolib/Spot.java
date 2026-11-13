@@ -23,6 +23,11 @@ public enum Spot {
     FLOWER_4_START(FieldPoints.FLOWER_4_START, FieldPointsBlue.FLOWER_4_START, false),
     FLOWER_4_END(FieldPoints.FLOWER_4_END, FieldPointsBlue.FLOWER_4_END, false),
 
+    FLOWER_1(FieldPoints.FLOWER_1, FieldPointsBlue.FLOWER_1, false),
+    FLOWER_2(FieldPoints.FLOWER_2, FieldPointsBlue.FLOWER_2, false),
+    FLOWER_3(FieldPoints.FLOWER_3, FieldPointsBlue.FLOWER_3, false),
+    FLOWER_4(FieldPoints.FLOWER_4, FieldPointsBlue.FLOWER_4, false),
+
     PARK(FieldPoints.PARK_POSE, FieldPointsBlue.PARK_POSE, false),
 
     ANGLE_1(FieldPoints.ANGLE_1, FieldPointsBlue.ANGLE_1, false),

@@ -4,12 +4,16 @@ import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.ANGLE_1;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.ANGLE_2;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.ANGLE_3;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.ANGLE_4;
+import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_1;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_1_END;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_1_START;
+import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_2;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_2_END;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_2_START;
+import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_3;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_3_END;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_3_START;
+import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_4;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_4_END;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.FLOWER_4_START;
 import static org.firstinspires.ftc.teamcode.opmode.autolib.Spot.PARK;
@@ -53,6 +57,7 @@ public final class AutoLibrary {
         parkPaths();
         ringPaths();
         rackPaths();
+        flowerStraddlePaths();
     }
 
     private void startPaths() {
@@ -186,6 +191,34 @@ public final class AutoLibrary {
         path(126, UNDER_RACK_EXIT, PARK);
     }
 
+
+    private void flowerStraddlePaths() {
+        section("Flower straddle: robot sides on the two flower points");
+        path(131, SHOOT_1, FLOWER_1);
+        path(132, SHOOT_1, FLOWER_2);
+        path(133, SHOOT_1, FLOWER_3);
+        path(134, SHOOT_1, FLOWER_4);
+        path(135, SHOOT_2, FLOWER_1);
+        path(136, SHOOT_2, FLOWER_2);
+        path(137, SHOOT_2, FLOWER_3);
+        path(138, SHOOT_2, FLOWER_4);
+        path(141, FLOWER_1, SHOOT_1);
+        path(142, FLOWER_2, SHOOT_1);
+        path(143, FLOWER_3, SHOOT_1);
+        path(144, FLOWER_4, SHOOT_1);
+        path(145, FLOWER_1, SHOOT_2);
+        path(146, FLOWER_2, SHOOT_2);
+        path(147, FLOWER_3, SHOOT_2);
+        path(148, FLOWER_4, SHOOT_2);
+        path(151, FLOWER_1, PARK);
+        path(152, FLOWER_2, PARK);
+        path(153, FLOWER_3, PARK);
+        path(154, FLOWER_4, PARK);
+        path(155, START, FLOWER_1);
+        path(156, START, FLOWER_2);
+        path(157, START, FLOWER_3);
+        path(158, START, FLOWER_4);
+    }
 
     public static synchronized AutoLibrary get() {
         if (instance == null) {

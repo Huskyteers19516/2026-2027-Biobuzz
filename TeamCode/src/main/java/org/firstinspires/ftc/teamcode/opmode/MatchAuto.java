@@ -24,19 +24,11 @@ public class MatchAuto extends LinearOpMode {
     /*
      * 原来 MatchAuto 的路线已经全部在 AutoLibrary 里了，对应的序列号:
      *   #1   START          -> SHOOT_1          shoot preload
-     *   #21  SHOOT_1        -> FLOWER_1_START
-     *   #31  FLOWER_1_START -> FLOWER_1_END     sweep flower 1
-     *   #41  FLOWER_1_END   -> SHOOT_1          shoot
-     *   #22  SHOOT_1        -> FLOWER_2_START
-     *   #32  FLOWER_2_START -> FLOWER_2_END     sweep flower 2
-     *   #44  FLOWER_2_END   -> SHOOT_2          shoot
-     *   #27  SHOOT_2        -> FLOWER_3_START
-     *   #33  FLOWER_3_START -> FLOWER_3_END     sweep flower 3
-     *   #46  FLOWER_3_END   -> SHOOT_2          shoot
-     *   #28  SHOOT_2        -> FLOWER_4_START
-     *   #34  FLOWER_4_START -> FLOWER_4_END     sweep flower 4
-     *   #48  FLOWER_4_END   -> SHOOT_2          shoot
-     *   #73  SHOOT_2        -> PARK
+     *   #134 SHOOT_1        -> FLOWER_4         intake flower 4
+     *   #144 FLOWER_4       -> SHOOT_1          shoot
+     *   #131 SHOOT_1        -> FLOWER_1         intake flower 1
+     *   #141 FLOWER_1       -> SHOOT_1          shoot
+     *   #72  SHOOT_1 ~ ANGLE_1 -> PARK
      * 红蓝用同一套号码，坐标自动从 FieldPoints / FieldPointsBlue 取。
      * 改顺序只要改下面 path(...) 里的数字，所有号码见 autolib/AutoLibrary.java。
      */
@@ -45,23 +37,13 @@ public class MatchAuto extends LinearOpMode {
 
         steps.add(path(1).shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
 
-        steps.add(path(21));
-        steps.add(path(31).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(41).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
+        steps.add(path(134).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(path(144).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
-        steps.add(path(22));
-        steps.add(path(32).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(44).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
+        steps.add(path(131).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(path(141).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
-        steps.add(path(27));
-        steps.add(path(33).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(46).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(path(28));
-        steps.add(path(34).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(48).shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2));
-
-        steps.add(path(73));
+        steps.add(path(72));
 
         return steps;
     }
@@ -87,6 +69,15 @@ public class MatchAuto extends LinearOpMode {
     private static final double CONFIRM_SCAN_SECONDS = 0.25;
     private static final int AIM_MAX_TURN_PASSES = 2;
     private static final double AIM_MIN_PASS_SECONDS = 0.40;
+
+    private static final double LOCALIZER_CHECK_SECONDS = 3.0;
+    private static final double LOCALIZER_BACKWARD_LIMIT_INCHES = 3.0;
+    private static final int LOCALIZER_FAULT_TICKS = 5;
+    private static final double LOCALIZER_POD_DOMINANCE = 3.0;
+
+    private String localizerFault = null;
+    private String localizerFix = null;
+    private String localizerCheck = null;
 
     private Follower follower;
     private GoalScanner scanner;
@@ -221,12 +212,25 @@ public class MatchAuto extends LinearOpMode {
                         break;
                     }
                     runStep(index, mission.size(), mission.get(index));
+                    if (localizerFault != null) {
+                        stopReason = localizerFault;
+                        break;
+                    }
                 }
             } finally {
                 stopAll();
                 PoseHandoff.save(follower.pose(), alliance);
             }
 
+            if (localizerFault != null) {
+                while (opModeIsActive()) {
+                    addLocalizerFaultTelemetry();
+                    telemetry.addData("Last path", lastPathResult);
+                    telemetry.update();
+                    sleep(50);
+                }
+                addLocalizerFaultTelemetry();
+            }
             telemetry.addData("Status", "Finished");
             telemetry.addData("Alliance", alliance);
             telemetry.addData("Reason", stopReason);
@@ -310,7 +314,7 @@ public class MatchAuto extends LinearOpMode {
         }
         boolean timedOut = drive(index, total, step);
 
-        if (!opModeIsActive()) {
+        if (!opModeIsActive() || localizerFault != null) {
             return;
         }
 
@@ -353,12 +357,28 @@ public class MatchAuto extends LinearOpMode {
         ElapsedTime pathTimer = new ElapsedTime();
         boolean timedOut = false;
 
+        Pose[] legPoses = step.leg.poses(alliance);
+        Pose legStart = legPoses[0];
+        double legX = legPoses[1].x() - legStart.x();
+        double legY = legPoses[1].y() - legStart.y();
+        double legLength = Math.hypot(legX, legY);
+        int backwardTicks = 0;
+
         while (canKeepRunning() && (follower.following() || follower.isBusy())) {
             if (pathTimer.seconds() >= step.timeoutSeconds) {
                 timedOut = true;
                 break;
             }
             tick();
+            if (index == 0 && legLength > 0.0 && pathTimer.seconds() <= LOCALIZER_CHECK_SECONDS) {
+                Pose here = follower.pose();
+                double along = ((here.x() - legStart.x()) * legX + (here.y() - legStart.y()) * legY) / legLength;
+                backwardTicks = along < -LOCALIZER_BACKWARD_LIMIT_INCHES ? backwardTicks + 1 : 0;
+                if (backwardTicks >= LOCALIZER_FAULT_TICKS) {
+                    reportLocalizerFault(legStart, legX, legY, along);
+                    break;
+                }
+            }
             addStepTelemetry(index, total, step, "following");
             telemetry.addData("Remaining on path", "%.1f in", follower.remainingDistance());
             telemetry.addData("Path time", "%.1f / %.1f s", pathTimer.seconds(), step.timeoutSeconds);
@@ -367,10 +387,42 @@ public class MatchAuto extends LinearOpMode {
 
         intake.setPower(0.0);
 
+        if (localizerFault != null) {
+            lastPathResult = String.format("step %d STOPPED after %.1f s - localizer fault", index + 1, pathTimer.seconds());
+            return false;
+        }
+
         lastPathResult = timedOut
                 ? String.format("step %d TIMEOUT after %.1f s", index + 1, pathTimer.seconds())
                 : String.format("step %d arrived in %.1f s", index + 1, pathTimer.seconds());
         return timedOut;
+    }
+
+    private void reportLocalizerFault(Pose legStart, double legX, double legY, double along) {
+        double heading = legStart.heading();
+        double forwardPart = Math.abs(Math.cos(heading) * legX + Math.sin(heading) * legY);
+        double strafePart = Math.abs(-Math.sin(heading) * legX + Math.cos(heading) * legY);
+        localizerFault = String.format("Pinpoint measured %.1f in BACKWARD while driving the first path", -along);
+        if (forwardPart >= LOCALIZER_POD_DOMINANCE * strafePart) {
+            localizerFix = "If it moves AWAY: flip PINPOINT_X_POD_DIRECTION in pedroPathing/Constants.java.";
+        } else if (strafePart >= LOCALIZER_POD_DOMINANCE * forwardPart) {
+            localizerFix = "If it moves AWAY: flip PINPOINT_Y_POD_DIRECTION in pedroPathing/Constants.java.";
+        } else {
+            localizerFix = "If it moves AWAY: check PINPOINT_X_POD_DIRECTION and PINPOINT_Y_POD_DIRECTION"
+                    + " in pedroPathing/Constants.java.";
+        }
+        localizerCheck = String.format("Measured pose must move from (%.1f, %.1f) toward (%.1f, %.1f).",
+                legStart.x(), legStart.y(), legStart.x() + legX, legStart.y() + legY);
+    }
+
+    private void addLocalizerFaultTelemetry() {
+        telemetry.addLine("!! LOCALIZER READS BACKWARD - AUTO STOPPED");
+        telemetry.addLine(localizerFault);
+        telemetry.addLine("Change nothing yet. INIT this OpMode and push the robot by hand along the first path.");
+        telemetry.addLine(localizerCheck);
+        telemetry.addLine(localizerFix);
+        telemetry.addLine("If the other coordinate changes instead: the two pod cables are swapped on the Pinpoint.");
+        telemetry.addLine("If the robot itself drove backward, fix the drive motor directions instead.");
     }
 
     private boolean turnInPlace(int index, int total, Step step) {

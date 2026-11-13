@@ -26,8 +26,8 @@ public class ParkUnderRackAuto extends ParkAuto {
             };
         }
         return new Pose[] {
-                FieldPoints.UNDER_RACK_CONTROL_POINT_1,
                 FieldPoints.UNDER_RACK_CONTROL_POINT_2,
+                FieldPoints.UNDER_RACK_CONTROL_POINT_1,
                 FieldPoints.PARK_POSE
         };
     }

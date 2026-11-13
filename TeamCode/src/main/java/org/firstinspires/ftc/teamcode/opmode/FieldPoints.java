@@ -4,7 +4,7 @@ import com.pedropathing.math.Pose;
 
 public class FieldPoints {
 
-    public static final boolean POINTS_CONFIRMED = false;
+    public static final boolean POINTS_CONFIRMED = true;
 
     public static final Pose START_POSE = new Pose(60.0, 11.0, Math.toRadians(90.0));
 
@@ -26,11 +26,11 @@ public class FieldPoints {
 
     public static final Pose PARK_POSE = new Pose(9.5, 105.0, Math.toRadians(90.0));
 
-    public static final boolean GOALS_CONFIRMED = false;
+    public static final boolean GOALS_CONFIRMED = true;
     public static final Pose GOAL_SCORING = new Pose(59.25, 86.0, Math.toRadians(90.0));
     public static final Pose GOAL_AUDIENCE = new Pose(59.25, 58.0, Math.toRadians(270.0));
 
-    public static final boolean PARK_ROUTE_CONFIRMED = false;
+    public static final boolean PARK_ROUTE_CONFIRMED = true;
     public static final Pose RACK_AROUND_1 = new Pose(30.0, 30.0, Math.toRadians(90.0));
     public static final Pose RACK_AROUND_2 = new Pose(30.0, 105.0, Math.toRadians(90.0));
     public static final Pose UNDER_RACK_CONTROL_POINT_1 = new Pose(60.629, 104.899, Math.toRadians(90.0));
@@ -63,4 +63,21 @@ public class FieldPoints {
     public static final double AUTONOMOUS_BUDGET_SECONDS = 28.0;
 
     public static final double MIN_PATH_LENGTH_INCHES = 0.5;
+
+    public static final Pose FLOWER_1 = flowerPose(FLOWER_1_START, FLOWER_1_END);
+    public static final Pose FLOWER_2 = flowerPose(FLOWER_2_START, FLOWER_2_END);
+    public static final Pose FLOWER_3 = flowerPose(FLOWER_3_START, FLOWER_3_END);
+    public static final Pose FLOWER_4 = flowerPose(FLOWER_4_START, FLOWER_4_END);
+
+    public static Pose flowerPose(Pose sideA, Pose sideB) {
+        double across = Math.atan2(sideB.y() - sideA.y(), sideB.x() - sideA.x());
+        double facing = Math.atan2(Math.sin(sideA.heading()) + Math.sin(sideB.heading()),
+                Math.cos(sideA.heading()) + Math.cos(sideB.heading()));
+        double left = across + Math.PI / 2.0;
+        double right = across - Math.PI / 2.0;
+        double heading = Math.abs(GoalAim.normalizeRadians(left - facing))
+                <= Math.abs(GoalAim.normalizeRadians(right - facing)) ? left : right;
+        return new Pose((sideA.x() + sideB.x()) / 2.0, (sideA.y() + sideB.y()) / 2.0,
+                GoalAim.normalizeRadians(heading));
+    }
 }

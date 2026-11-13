@@ -24,7 +24,7 @@ public class Launcher {
 
     public enum State { OFF, SPINNING_UP, READY, FEEDING, CLOSING, RECOVERING, MANUAL_OPEN }
 
-    public static double DEFAULT_TARGET_VELOCITY = 1600.0;
+    public static double DEFAULT_TARGET_VELOCITY = 1200.0;
     public static final double MIN_TARGET_VELOCITY = 500.0;
     public static final double MAX_TARGET_VELOCITY = 2800.0;
 
@@ -61,6 +61,7 @@ public class Launcher {
     public static double DEFAULT_FEED_SETPOINT_BOOST = 0.0;
     public static double DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS = 0.3;
     public static double DEFAULT_BURST_BOOST = 50.0;
+    public static double COUNTER_WHEEL_RATIO = 1.5;
 
     public static double AUTO_READY_TIMEOUT_SECONDS = 2.5;
     public static double AUTO_SHOT_TIMEOUT_SECONDS = 4.0;
@@ -159,6 +160,7 @@ public class Launcher {
     }
 
     private final DcMotorEx outtake;
+    private final DcMotorEx counterWheel;
     private final DcMotor transfer;
     private final Servo blocker;
     private VoltageSensor voltageSensor = null;
@@ -182,6 +184,7 @@ public class Launcher {
     public double feedSetpointBoost = DEFAULT_FEED_SETPOINT_BOOST;
     public double feedSetpointBoostRampSeconds = DEFAULT_FEED_SETPOINT_BOOST_RAMP_SECONDS;
     public double burstBoost = DEFAULT_BURST_BOOST;
+    public double counterWheelRatio = COUNTER_WHEEL_RATIO;
     public double readyTimeoutSeconds = Double.POSITIVE_INFINITY;
     public double queueExpireSeconds = Double.POSITIVE_INFINITY;
 
@@ -226,6 +229,10 @@ public class Launcher {
     private double powerWrittenAt = -1.0;
     private double velocityWrittenAt = -1.0;
     private double transferWrittenAt = -1.0;
+    private double counterTarget = 0.0;
+    private double counterMeasured = 0.0;
+    private double lastCounterWritten = Double.NaN;
+    private double counterWrittenAt = -1.0;
 
     private int shotsAttempted = 0;
     private int shotsDetected = 0;
@@ -247,7 +254,16 @@ public class Launcher {
         outtake.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         outtake.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
 
-        transfer = hardwareMap.get(DcMotor.class, Constants.TRANSFER);
+        counterWheel = hardwareMap.tryGet(DcMotorEx.class, Constants.COUNTER_WHEEL);
+        if (counterWheel != null) {
+            counterWheel.setDirection(Constants.COUNTER_WHEEL_DIRECTION);
+            counterWheel.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
+            counterWheel.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+            counterWheel.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+            counterWheel.setVelocity(0.0);
+        }
+
+        transfer =hardwareMap.get(DcMotor.class, Constants.TRANSFER);
         transfer.setDirection(Constants.TRANSFER_DIRECTION);
         transfer.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         transfer.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -404,6 +420,7 @@ public class Launcher {
         now = clock.seconds();
         lastTime = now;
         measured = outtake.getVelocity();
+        counterMeasured = counterWheel != null ? counterWheel.getVelocity() : 0.0;
         if (lastVoltageRead < 0 || now - lastVoltageRead >= VOLTAGE_READ_SECONDS) {
             readVoltage();
         }
@@ -418,7 +435,21 @@ public class Launcher {
         updateState();
         writeMechanism();
         writeFlywheel(dt);
+        writeCounterWheel();
         updateEncoderFault();
+    }
+
+    private void writeCounterWheel() {
+        if (counterWheel == null) {
+            return;
+        }
+        double follow = openLoopPower != null ? Math.max(0.0, measured) : commandedVelocity;
+        counterTarget = encoderReversed ? 0.0 : Range.clip(follow * counterWheelRatio, 0.0, MAX_TARGET_VELOCITY);
+        if (stale(counterTarget, lastCounterWritten, counterWrittenAt)) {
+            counterWheel.setVelocity(counterTarget);
+            lastCounterWritten = counterTarget;
+            counterWrittenAt = now;
+        }
     }
 
     private void updateReady() {
@@ -759,6 +790,12 @@ public class Launcher {
             outtake.setVelocity(0.0);
         }
         transfer.setPower(0.0);
+        if (counterWheel != null) {
+            counterWheel.setVelocity(0.0);
+            counterTarget = 0.0;
+            lastCounterWritten = 0.0;
+            counterWrittenAt = now;
+        }
         blocker.setPosition(Constants.BLOCKER_CLOSED_POSITION);
         lastPowerWritten = 0.0;
         lastVelocityWritten = 0.0;
@@ -883,6 +920,12 @@ public class Launcher {
         telemetry.addData("Velocity", "target %.0f  measured %.0f  error %+.0f%s",
                 commandedVelocity, measured, commandedVelocity - measured,
                 burstBoostActive() ? String.format("  (burst +%.0f)", shotTargetVelocity() - targetVelocity) : "");
+        if (counterWheel == null) {
+            telemetry.addData("Counter wheel", "NOT IN CONFIG - add a motor named \"%s\"", Constants.COUNTER_WHEEL);
+        } else {
+            telemetry.addData("Counter wheel", "target %.0f  measured %.0f  (%.2fx outtake)",
+                    counterTarget, counterMeasured, counterWheelRatio);
+        }
         if (controlMode == ControlMode.CUSTOM) {
             telemetry.addData("Motor", "power %.2f%s  battery %.1f V",
                     power, boosting ? "  RECOVERY BOOST" : "", voltage);

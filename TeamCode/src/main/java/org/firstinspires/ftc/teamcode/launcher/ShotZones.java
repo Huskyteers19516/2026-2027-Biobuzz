@@ -31,8 +31,8 @@ public final class ShotZones {
     }
 
     public static final Zone[] ZONES = {
-            new Zone("3FT", 38.0, 46.5, 1500.0),
-            new Zone("WALL", 48.0, 64.0, 1450.0),
+            new Zone("3FT", 38.0, 46.5, 1200.0),
+            new Zone("WALL", 48.0, 64.0, 1150.0),
     };
 
     public static final class Result {
