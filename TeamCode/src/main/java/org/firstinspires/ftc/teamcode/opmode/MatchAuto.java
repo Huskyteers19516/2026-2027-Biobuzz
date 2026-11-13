@@ -24,10 +24,6 @@ public class MatchAuto extends LinearOpMode {
     /*
      * 原来 MatchAuto 的路线已经全部在 AutoLibrary 里了，对应的序列号:
      *   #1   START          -> SHOOT_1          shoot preload
-     *   #134 SHOOT_1        -> FLOWER_4         intake flower 4
-     *   #144 FLOWER_4       -> SHOOT_1          shoot
-     *   #131 SHOOT_1        -> FLOWER_1         intake flower 1
-     *   #141 FLOWER_1       -> SHOOT_1          shoot
      *   #72  SHOOT_1 ~ ANGLE_1 -> PARK
      * 红蓝用同一套号码，坐标自动从 FieldPoints / FieldPointsBlue 取。
      * 改顺序只要改下面 path(...) 里的数字，所有号码见 autolib/AutoLibrary.java。
@@ -36,12 +32,6 @@ public class MatchAuto extends LinearOpMode {
         List<Step> steps = new ArrayList<>();
 
         steps.add(path(1).shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
-
-        steps.add(path(134).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(144).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(path(131).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(path(141).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
         steps.add(path(72));
 

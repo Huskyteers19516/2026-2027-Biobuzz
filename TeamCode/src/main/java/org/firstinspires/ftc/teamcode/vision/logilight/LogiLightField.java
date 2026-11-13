@@ -9,6 +9,8 @@ import org.firstinspires.ftc.teamcode.vision.logilight.math.FieldTargetState;
 import org.firstinspires.ftc.teamcode.vision.logilight.math.PlanarPose;
 import org.firstinspires.ftc.teamcode.vision.logilight.math.Vec3;
 
+import java.util.List;
+
 public final class LogiLightField {
 
     public static final double ROBOT_RADIUS_INCHES = 9.0;
@@ -28,6 +30,12 @@ public final class LogiLightField {
     public static final String PLACEHOLDER_TARGET_OUTLINE = "#9e9e9e";
     public static final String PLACEHOLDER_TARGET_FILL = "rgba(158, 158, 158, 0.35)";
     public static final String SIGHT_LINE = "rgba(255, 152, 0, 0.6)";
+    public static final double POLLEN_RADIUS_INCHES = 1.4;
+    public static final String POLLEN_OUTLINE = "#fdd835";
+    public static final String POLLEN_FILL = "rgba(253, 216, 53, 0.75)";
+    public static final String SEEK_APPROACH_OUTLINE = "#4caf50";
+    public static final String SEEK_APPROACH_FILL = "rgba(76, 175, 80, 0.15)";
+    public static final String SEEK_PATH_LINE = "rgba(76, 175, 80, 0.8)";
 
     private LogiLightField() {
     }
@@ -112,6 +120,48 @@ public final class LogiLightField {
             }
             field.setOffsets(PanelsField.INSTANCE.getPresets().getPEDRO_PATHING());
             drawTargetsOn(field, map);
+            field.update();
+        } catch (Exception | LinkageError ignored) {
+        }
+    }
+
+    public static void drawSeek(Pose robot, double ballX, double ballY, Pose approach, List<Pose> via) {
+        if (!hasViewers()) {
+            return;
+        }
+        try {
+            FieldManager field = PanelsField.INSTANCE.getField();
+            if (!field.getShouldUpdateCanvas()) {
+                return;
+            }
+            field.setOffsets(PanelsField.INSTANCE.getPresets().getPEDRO_PATHING());
+            if (robot != null && approach != null) {
+                field.setStyle(PanelsField.INSTANCE.getTRANSPARENT(), SEEK_PATH_LINE, OUTLINE_WIDTH);
+                double fromX = robot.x();
+                double fromY = robot.y();
+                if (via != null) {
+                    for (Pose point : via) {
+                        if (point == null) {
+                            continue;
+                        }
+                        field.moveCursor(fromX, fromY);
+                        field.line(point.x(), point.y());
+                        fromX = point.x();
+                        fromY = point.y();
+                    }
+                }
+                field.moveCursor(fromX, fromY);
+                field.line(approach.x(), approach.y());
+            }
+            if (approach != null) {
+                drawRobotOn(field, approach, SEEK_APPROACH_FILL, SEEK_APPROACH_OUTLINE);
+            }
+            if (!Double.isNaN(ballX) && !Double.isNaN(ballY) && !Double.isInfinite(ballX) && !Double.isInfinite(ballY)) {
+                field.setStyle(POLLEN_FILL, POLLEN_OUTLINE, OUTLINE_WIDTH);
+                field.moveCursor(ballX, ballY);
+                field.circle(POLLEN_RADIUS_INCHES);
+            }
+            drawRobotOn(field, robot, ODOMETRY_FILL, ODOMETRY_OUTLINE);
             field.update();
         } catch (Exception | LinkageError ignored) {
         }
