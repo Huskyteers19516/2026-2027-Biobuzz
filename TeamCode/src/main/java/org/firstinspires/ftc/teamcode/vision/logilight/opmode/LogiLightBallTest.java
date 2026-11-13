@@ -5,8 +5,11 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.vision.logilight.ColorProfile;
 import org.firstinspires.ftc.teamcode.vision.logilight.ColorTarget;
+import org.firstinspires.ftc.teamcode.vision.logilight.LogiCameraConfig;
+import org.firstinspires.ftc.teamcode.vision.logilight.LogiFrameContext;
 import org.firstinspires.ftc.teamcode.vision.logilight.LogiLight;
 import org.firstinspires.ftc.teamcode.vision.logilight.LogiLightSettings;
+import org.firstinspires.ftc.teamcode.vision.logilight.LogiLightStore;
 import org.firstinspires.ftc.teamcode.vision.logilight.LogiPipeline;
 import org.firstinspires.ftc.teamcode.vision.logilight.LogiResult;
 import org.firstinspires.ftc.teamcode.vision.logilight.LogiStatus;
@@ -25,6 +28,8 @@ public class LogiLightBallTest extends OpMode {
     private static final String BLUE = "blue";
     private static final String[] ALL_COLORS = {YELLOW, RED, BLUE};
     private static final int MAX_BALLS_SHOWN = 5;
+    private static final String STREAMING_STATE = "STREAMING";
+    private static final String MISSING_WEBCAM_TEXT = "no webcam named";
 
     private enum Mode {
         ALL("all balls", ALL_COLORS),
@@ -44,7 +49,10 @@ public class LogiLightBallTest extends OpMode {
     private LogiLight camera;
     private Mode mode = Mode.ALL;
     private String pipelineNote = "";
-    private String message = "";
+    private String profileNote = "";
+    private boolean snapshotPending = false;
+    private String snapshotPathBefore = "";
+    private String snapshotMessage = "";
 
     @Override
     public void init() {
@@ -76,22 +84,57 @@ public class LogiLightBallTest extends OpMode {
         camera.update();
 
         if (!camera.isAvailable()) {
-            telemetry.addData("!! Camera", "NOT AVAILABLE - %s", camera.fault());
-            telemetry.addLine("Check Configure Robot: the webcam must be named \""
-                    + LogiLightSettings.CAMERA.webcamName + "\".");
+            showUnavailable();
             return;
         }
 
         LogiStatus status = camera.getStatus();
-        telemetry.addData("Camera", "%s  %.0f fps  frame age %.0f ms",
-                status.cameraState, status.fps, status.lastFrameAgeMs);
+        LogiFrameContext context = camera.getFrameContext();
+        telemetry.addData("Camera", "%s  %s  %.0f fps  frame age %s",
+                camera.getWebcamName(), status.cameraState, status.fps, formatAge(status.lastFrameAgeMs));
+        if (!status.watchdogReason.isEmpty()) {
+            telemetry.addData("Watchdog", status.watchdogReason);
+        }
+        if (context.hasRecentError()) {
+            telemetry.addData("!! Error", context.lastError());
+        }
         telemetry.addData("Looking for", "%s   (A all  Y yellow  B red  X blue)", mode.label);
         telemetry.addData("Stream view", "%s   (dpad L/R)", camera.getStreamView());
         if (!pipelineNote.isEmpty()) {
             telemetry.addLine(pipelineNote);
         }
+        if (!profileNote.isEmpty()) {
+            telemetry.addLine(profileNote);
+        }
 
-        LogiResult result = camera.getLatestResult();
+        boolean fresh = STREAMING_STATE.equals(status.cameraState)
+                && !Double.isNaN(status.lastFrameAgeMs)
+                && status.lastFrameAgeMs < LogiLight.RESULT_EXPIRY_MS;
+        if (!fresh) {
+            telemetry.addData("Balls", "no fresh frames - camera %s, wait for STREAMING or check the USB cable",
+                    status.cameraState);
+        } else {
+            showBalls(camera.getLatestResult());
+        }
+
+        showSnapshotStatus();
+        telemetry.addLine(videoHint(status));
+        telemetry.addLine("Video title shows the carrier pipeline \"" + pipelineName()
+                + "\"; colors come from A/Y/B/X and every ball box is drawn yellow - use the list above for colors.");
+    }
+
+    private void showUnavailable() {
+        String fault = camera.fault();
+        telemetry.addData("!! Camera", fault);
+        if (fault != null && fault.contains(MISSING_WEBCAM_TEXT)) {
+            telemetry.addLine("Configure Robot: name the webcam \"" + camera.getWebcamName()
+                    + "\" exactly, save, then restart the robot.");
+        } else {
+            telemetry.addLine("Check the USB cable (use the Control Hub USB 3.0 port), then restart this OpMode.");
+        }
+    }
+
+    private void showBalls(LogiResult result) {
         telemetry.addData("Counts", "yellow %d   red %d   blue %d",
                 result.getColorResults(YELLOW).size(),
                 result.getColorResults(RED).size(),
@@ -100,24 +143,46 @@ public class LogiLightBallTest extends OpMode {
         List<ColorTarget> balls = new ArrayList<ColorTarget>(result.getColorResults());
         if (balls.isEmpty()) {
             telemetry.addData("Balls", "none seen");
-        } else {
-            int shown = Math.min(MAX_BALLS_SHOWN, balls.size());
-            for (int i = 0; i < shown; i++) {
-                telemetry.addData("#" + (i + 1), describe(balls.get(i)));
+            return;
+        }
+        boolean anyGround = false;
+        int shown = Math.min(MAX_BALLS_SHOWN, balls.size());
+        for (int i = 0; i < balls.size(); i++) {
+            ColorTarget ball = balls.get(i);
+            if (ball.hasGroundPosition()) {
+                anyGround = true;
             }
-            if (balls.size() > shown) {
-                telemetry.addData("More", "%d more not shown", balls.size() - shown);
+            if (i < shown) {
+                telemetry.addData("#" + (i + 1), describe(ball));
             }
         }
+        if (balls.size() > shown) {
+            telemetry.addData("More", "%d more not shown", balls.size() - shown);
+        }
+        LogiCameraConfig config = camera.getCameraConfig();
+        if (!anyGround && config != null) {
+            telemetry.addLine(String.format(Locale.US,
+                    "No ground distance: mount says up %.1f in, tilt %+.0f deg (negative = down). "
+                            + "Set them in Panels or LogiLight Mount Calibration once the camera is mounted.",
+                    config.upInches, config.tiltUpDegrees));
+        } else if (anyGround) {
+            telemetry.addLine("Ground distances use the mount values in LogiLightSettings.CAMERA - only right once the camera is mounted and measured.");
+        }
+    }
 
-        if (LogiLightSettings.CAMERA.tiltUpDegrees >= 0.0) {
-            telemetry.addLine("Ground distance needs a downward camera: set LogiLightSettings.CAMERA "
-                    + "tiltUpDegrees (negative = down) and upInches.");
+    private void showSnapshotStatus() {
+        if (snapshotPending) {
+            String path = camera.lastSnapshotPath();
+            if (path != null && !path.isEmpty() && !path.equals(snapshotPathBefore)) {
+                snapshotPending = false;
+                snapshotMessage = "snapshot saved: " + path;
+            } else {
+                snapshotMessage = "snapshot queued (needs a live frame)";
+            }
         }
-        if (!message.isEmpty()) {
-            telemetry.addLine(message);
+        if (!snapshotMessage.isEmpty()) {
+            telemetry.addLine(snapshotMessage);
         }
-        telemetry.addLine("dpad up = snapshot   Video: DS menu > Camera Stream during INIT, or Panels");
     }
 
     private void handleButtons() {
@@ -146,29 +211,46 @@ public class LogiLightBallTest extends OpMode {
             camera.setStreamView(left ? previous(view) : view.next());
         }
         if (up) {
-            boolean queued = camera.captureSnapshot("balltest");
-            message = queued ? "snapshot queued - saved under /sdcard/FIRST/logilight/snapshots"
-                    : "!! snapshot failed";
+            String before = camera.lastSnapshotPath();
+            if (camera.captureSnapshot("balltest")) {
+                snapshotPending = true;
+                snapshotPathBefore = before == null ? "" : before;
+                snapshotMessage = "snapshot queued (needs a live frame)";
+            } else {
+                snapshotPending = false;
+                snapshotMessage = "!! snapshot not queued - camera not ready";
+            }
         }
     }
 
     private void applyMode() {
         List<ColorProfile> profiles = new ArrayList<ColorProfile>();
         List<String> missing = new ArrayList<String>();
+        List<String> disabled = new ArrayList<String>();
         for (String name : mode.colors) {
             ColorProfile profile = LogiLightSettings.findColorProfile(name);
             if (profile == null) {
                 missing.add(name);
-            } else {
-                profiles.add(profile);
+                continue;
             }
+            if (!profile.enabled) {
+                disabled.add(name);
+            }
+            profiles.add(profile);
         }
         camera.getFrameContext().setColorProfileOverride(profiles.toArray(new ColorProfile[0]));
+        StringBuilder note = new StringBuilder();
         if (!missing.isEmpty()) {
-            pipelineNote = "!! no color profile named " + missing + " in LogiLightSettings.COLOR_PROFILES";
-        } else if (pipelineNote.startsWith("!! no color profile")) {
-            pipelineNote = "";
+            note.append("!! no color profile named ").append(missing).append(" in LogiLightSettings.COLOR_PROFILES");
         }
+        if (!disabled.isEmpty()) {
+            if (note.length() > 0) {
+                note.append("   ");
+            }
+            note.append("!! color profile ").append(disabled)
+                    .append(" is disabled (enabled = NO) - turn it on in Panels or LogiLight Color Tuner");
+        }
+        profileNote = note.toString();
     }
 
     private void selectColorPipeline() {
@@ -192,8 +274,30 @@ public class LogiLightBallTest extends OpMode {
             camera.pipelineSwitch(fallback);
             pipelineNote = "no COLOR-only pipeline - using " + LogiLightSettings.pipelineAt(fallback).name;
         } else {
-            pipelineNote = "!! no pipeline that detects color in LogiLightSettings.PIPELINES";
+            pipelineNote = "!! no pipeline that detects color in LogiLightSettings.PIPELINES - balls cannot be seen";
         }
+    }
+
+    private String pipelineName() {
+        LogiPipeline pipeline = camera.getPipeline();
+        return pipeline == null || pipeline.name == null ? "?" : pipeline.name;
+    }
+
+    private static String videoHint(LogiStatus status) {
+        if (status.driverStationStreaming && status.panelsStreaming) {
+            return "dpad up = snapshot   Video: DS menu > Camera Stream during INIT, or Panels (http://192.168.43.1:8001)";
+        }
+        if (status.driverStationStreaming) {
+            return "dpad up = snapshot   Video: DS menu > Camera Stream during INIT";
+        }
+        if (status.panelsStreaming) {
+            return "dpad up = snapshot   Video: Panels (http://192.168.43.1:8001)";
+        }
+        return "dpad up = snapshot   !! DS and Panels streams are off (DRIVER_STATION_STREAM / PANELS_STREAM in LogiLightSettings)";
+    }
+
+    private static String formatAge(double ageMs) {
+        return Double.isNaN(ageMs) || Double.isInfinite(ageMs) ? "--" : String.format(Locale.US, "%.0f ms", ageMs);
     }
 
     private static String describe(ColorTarget ball) {
