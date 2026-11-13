@@ -31,6 +31,7 @@ public class Constants {
     public static final String INTAKE = "intake";
     public static final String TRANSFER = "transfer";
     public static final String OUTTAKE = "outtake";
+    public static final String COUNTER_WHEEL = "counter_wheel";
     public static final String FLOWER_INTAKE = "flower_intake";
     public static final String OUTTAKE_BLOCKER = "outtake_blocker";
     public static final String WEBCAM = "Webcam 1";
@@ -41,6 +42,7 @@ public class Constants {
     public static final DcMotorSimple.Direction INTAKE_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction TRANSFER_DIRECTION = DcMotorSimple.Direction.FORWARD;
     public static final DcMotorSimple.Direction OUTTAKE_DIRECTION = DcMotorSimple.Direction.REVERSE;
+    public static final DcMotorSimple.Direction COUNTER_WHEEL_DIRECTION = DcMotorSimple.Direction.REVERSE;
 
     public static double INTAKE_POWER = 1.0;
     public static double TRANSFER_POWER = 1.0;
@@ -65,7 +67,7 @@ public class Constants {
     public static double AIM_TOLERANCE_DEGREES = 2.0;
     public static double AIM_SETTLE_SECONDS = 0.15;
 
-    public static final boolean GOAL_CHECK_CALIBRATED = false;
+    public static final boolean GOAL_CHECK_CALIBRATED = true;
     public static double CAMERA_ROLL_OFFSET_DEGREES = 0.0;
     public static double GOAL_UP_MAX_ABS_ROLL_DEGREES = 90.0;
     public static final boolean BLOCK_SHOT_WHEN_GOAL_NOT_SEEN = false;

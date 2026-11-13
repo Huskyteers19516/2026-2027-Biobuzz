@@ -1,10 +1,8 @@
 package org.firstinspires.ftc.teamcode.opmode;
 
 import com.bylazar.configurables.annotations.Configurable;
-import com.pedropathing.api.Paths;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.math.Pose;
-import com.pedropathing.paths.Path;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
@@ -12,147 +10,40 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.launcher.Launcher;
+import org.firstinspires.ftc.teamcode.opmode.autolib.AutoLibrary;
 import org.firstinspires.ftc.teamcode.panels.PanelsBridge;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 @Configurable
 @Autonomous(name = "Match Auto", group = "Auto")
 public class MatchAuto extends LinearOpMode {
 
-    private List<Step> redRoute() {
+    /*
+     * 原来 MatchAuto 的路线已经全部在 AutoLibrary 里了，对应的序列号:
+     *   #1   START          -> SHOOT_1          shoot preload
+     *   #134 SHOOT_1        -> FLOWER_4         intake flower 4
+     *   #144 FLOWER_4       -> SHOOT_1          shoot
+     *   #131 SHOOT_1        -> FLOWER_1         intake flower 1
+     *   #141 FLOWER_1       -> SHOOT_1          shoot
+     *   #72  SHOOT_1 ~ ANGLE_1 -> PARK
+     * 红蓝用同一套号码，坐标自动从 FieldPoints / FieldPointsBlue 取。
+     * 改顺序只要改下面 path(...) 里的数字，所有号码见 autolib/AutoLibrary.java。
+     */
+    private List<Step> route() {
         List<Step> steps = new ArrayList<>();
 
-        steps.add(step("Shoot preload at shooting point 1")
-                .from(FieldPoints.START_POSE)
-                .to(FieldPoints.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
+        steps.add(path(1).shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
 
-        steps.add(step("Move to flower 1 start")
-                .from(FieldPoints.SHOOT_POSE_1)
-                .to(FieldPoints.FLOWER_1_START));
-        steps.add(step("Sweep flower 1")
-                .from(FieldPoints.FLOWER_1_START)
-                .to(FieldPoints.FLOWER_1_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 1 at shooting point 1")
-                .from(FieldPoints.FLOWER_1_END)
-                .to(FieldPoints.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
+        steps.add(path(134).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(path(144).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
-        steps.add(step("Move to flower 2 start")
-                .from(FieldPoints.SHOOT_POSE_1)
-                .to(FieldPoints.FLOWER_2_START));
-        steps.add(step("Sweep flower 2")
-                .from(FieldPoints.FLOWER_2_START)
-                .to(FieldPoints.FLOWER_2_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 2 at shooting point 2")
-                .from(FieldPoints.FLOWER_2_END)
-                .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
+        steps.add(path(131).intakeWhileDriving().intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
+        steps.add(path(141).shoot(FieldPoints.SHOTS_AFTER_FLOWER));
 
-        steps.add(step("Move to flower 3 start")
-                .from(FieldPoints.SHOOT_POSE_2)
-                .to(FieldPoints.FLOWER_3_START));
-        steps.add(step("Sweep flower 3")
-                .from(FieldPoints.FLOWER_3_START)
-                .to(FieldPoints.FLOWER_3_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 3 at shooting point 2")
-                .from(FieldPoints.FLOWER_3_END)
-                .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(step("Move to flower 4 start")
-                .from(FieldPoints.SHOOT_POSE_2)
-                .to(FieldPoints.FLOWER_4_START));
-        steps.add(step("Sweep flower 4")
-                .from(FieldPoints.FLOWER_4_START)
-                .to(FieldPoints.FLOWER_4_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 4 at shooting point 2")
-                .from(FieldPoints.FLOWER_4_END)
-                .to(FieldPoints.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2));
-
-        steps.add(step("Park")
-                .from(FieldPoints.SHOOT_POSE_2)
-                .to(FieldPoints.PARK_POSE));
-
-        return steps;
-    }
-
-    private List<Step> blueRoute() {
-        List<Step> steps = new ArrayList<>();
-
-        steps.add(step("Shoot preload at shooting point 1")
-                .from(FieldPointsBlue.START_POSE)
-                .to(FieldPointsBlue.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_1));
-
-        steps.add(step("Move to flower 1 start")
-                .from(FieldPointsBlue.SHOOT_POSE_1)
-                .to(FieldPointsBlue.FLOWER_1_START));
-        steps.add(step("Sweep flower 1")
-                .from(FieldPointsBlue.FLOWER_1_START)
-                .to(FieldPointsBlue.FLOWER_1_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 1 at shooting point 1")
-                .from(FieldPointsBlue.FLOWER_1_END)
-                .to(FieldPointsBlue.SHOOT_POSE_1)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(step("Move to flower 2 start")
-                .from(FieldPointsBlue.SHOOT_POSE_1)
-                .to(FieldPointsBlue.FLOWER_2_START));
-        steps.add(step("Sweep flower 2")
-                .from(FieldPointsBlue.FLOWER_2_START)
-                .to(FieldPointsBlue.FLOWER_2_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 2 at shooting point 2")
-                .from(FieldPointsBlue.FLOWER_2_END)
-                .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(step("Move to flower 3 start")
-                .from(FieldPointsBlue.SHOOT_POSE_2)
-                .to(FieldPointsBlue.FLOWER_3_START));
-        steps.add(step("Sweep flower 3")
-                .from(FieldPointsBlue.FLOWER_3_START)
-                .to(FieldPointsBlue.FLOWER_3_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 3 at shooting point 2")
-                .from(FieldPointsBlue.FLOWER_3_END)
-                .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AFTER_FLOWER));
-
-        steps.add(step("Move to flower 4 start")
-                .from(FieldPointsBlue.SHOOT_POSE_2)
-                .to(FieldPointsBlue.FLOWER_4_START));
-        steps.add(step("Sweep flower 4")
-                .from(FieldPointsBlue.FLOWER_4_START)
-                .to(FieldPointsBlue.FLOWER_4_END)
-                .intakeWhileDriving()
-                .intake(FieldPoints.INTAKE_SECONDS_AT_FLOWER));
-        steps.add(step("Shoot flower 4 at shooting point 2")
-                .from(FieldPointsBlue.FLOWER_4_END)
-                .to(FieldPointsBlue.SHOOT_POSE_2)
-                .shoot(FieldPoints.SHOTS_AT_SHOOT_POSE_2));
-
-        steps.add(step("Park")
-                .from(FieldPointsBlue.SHOOT_POSE_2)
-                .to(FieldPointsBlue.PARK_POSE));
+        steps.add(path(72));
 
         return steps;
     }
@@ -163,7 +54,7 @@ public class MatchAuto extends LinearOpMode {
 
     private static final double AUTONOMOUS_BUDGET_SECONDS = FieldPoints.AUTONOMOUS_BUDGET_SECONDS;
     private static final double MIN_PATH_LENGTH_INCHES = FieldPoints.MIN_PATH_LENGTH_INCHES;
-    private static final double DEFAULT_PATH_TIMEOUT_SECONDS = FieldPoints.DEFAULT_PATH_TIMEOUT_SECONDS;
+    private static final String CONFIRM_FLAGS = "POINTS_CONFIRMED (and PARK_ROUTE_CONFIRMED for rack points)";
 
     private static final boolean VISION_AIMING_ENABLED = FieldPoints.VISION_AIMING_ENABLED;
 
@@ -178,6 +69,15 @@ public class MatchAuto extends LinearOpMode {
     private static final double CONFIRM_SCAN_SECONDS = 0.25;
     private static final int AIM_MAX_TURN_PASSES = 2;
     private static final double AIM_MIN_PASS_SECONDS = 0.40;
+
+    private static final double LOCALIZER_CHECK_SECONDS = 3.0;
+    private static final double LOCALIZER_BACKWARD_LIMIT_INCHES = 3.0;
+    private static final int LOCALIZER_FAULT_TICKS = 5;
+    private static final double LOCALIZER_POD_DOMINANCE = 3.0;
+
+    private String localizerFault = null;
+    private String localizerFix = null;
+    private String localizerCheck = null;
 
     private Follower follower;
     private GoalScanner scanner;
@@ -208,8 +108,7 @@ public class MatchAuto extends LinearOpMode {
     @Override
     public void runOpMode() {
         PoseHandoff.clear();
-        checkRoute("Red", redRoute());
-        checkRoute("Blue", blueRoute());
+        checkRoute(route());
 
         follower = Constants.createFollower(hardwareMap);
         scanner = new GoalScanner(hardwareMap);
@@ -251,6 +150,7 @@ public class MatchAuto extends LinearOpMode {
                 telemetry.addData("ALLIANCE", "%s   (X = BLUE, B = RED)", alliance);
                 telemetry.addData("Points file", pointsFile());
                 telemetry.addData("Steps", mission.size());
+                telemetry.addData("Paths", pathNumbers(mission));
                 telemetry.addData("Budget", "%.1f s", AUTONOMOUS_BUDGET_SECONDS);
                 telemetry.addData("Start pose", formatPose(startPose()));
                 telemetry.addData("Measured pose", formatPose(follower.pose()));
@@ -272,7 +172,7 @@ public class MatchAuto extends LinearOpMode {
                 if (!pointsConfirmed()) {
                     telemetry.addLine("!! " + alliance + " FIELD POINTS NOT CONFIRMED - AUTO WILL NOT MOVE");
                     telemetry.addLine("Measure the real coordinates in " + pointsFile() + ",");
-                    telemetry.addLine("then set POINTS_CONFIRMED = true.");
+                    telemetry.addLine("then set " + CONFIRM_FLAGS + " = true.");
                 }
 
                 telemetry.addLine("Nothing is commanded until START");
@@ -285,7 +185,7 @@ public class MatchAuto extends LinearOpMode {
                 while (opModeIsActive()) {
                     telemetry.addLine("!! " + alliance + " FIELD POINTS NOT CONFIRMED - REFUSING TO DRIVE");
                     telemetry.addLine("The poses in " + pointsFile() + " are placeholders.");
-                    telemetry.addLine("Measure them, then set POINTS_CONFIRMED = true.");
+                    telemetry.addLine("Measure them, then set " + CONFIRM_FLAGS + " = true.");
                     telemetry.update();
                 }
 
@@ -312,12 +212,25 @@ public class MatchAuto extends LinearOpMode {
                         break;
                     }
                     runStep(index, mission.size(), mission.get(index));
+                    if (localizerFault != null) {
+                        stopReason = localizerFault;
+                        break;
+                    }
                 }
             } finally {
                 stopAll();
                 PoseHandoff.save(follower.pose(), alliance);
             }
 
+            if (localizerFault != null) {
+                while (opModeIsActive()) {
+                    addLocalizerFaultTelemetry();
+                    telemetry.addData("Last path", lastPathResult);
+                    telemetry.update();
+                    sleep(50);
+                }
+                addLocalizerFaultTelemetry();
+            }
             telemetry.addData("Status", "Finished");
             telemetry.addData("Alliance", alliance);
             telemetry.addData("Reason", stopReason);
@@ -339,27 +252,43 @@ public class MatchAuto extends LinearOpMode {
         return alliance == GoalScanner.Alliance.BLUE;
     }
 
-    private List<Step> route() {
-        return isBlue() ? blueRoute() : redRoute();
-    }
-
     private Pose startPose() {
-        return GoalAim.startPose(alliance);
+        return route().get(0).leg.start(alliance);
     }
 
     private boolean pointsConfirmed() {
-        return isBlue() ? FieldPointsBlue.POINTS_CONFIRMED : FieldPoints.POINTS_CONFIRMED;
+        for (Step step : route()) {
+            if (!step.leg.confirmed(alliance)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static String pathNumbers(List<Step> steps) {
+        StringBuilder text = new StringBuilder();
+        for (Step step : steps) {
+            if (text.length() > 0) text.append(", ");
+            text.append(step.leg.number);
+        }
+        return text.toString();
     }
 
     private String pointsFile() {
         return isBlue() ? "FieldPointsBlue.java" : "FieldPoints.java";
     }
 
-    private void checkRoute(String name, List<Step> steps) {
-        for (int i = 0; i < steps.size(); i++) {
-            if (steps.get(i).to == null) {
-                throw new IllegalStateException(name + " route step " + (i + 1)
-                        + " \"" + steps.get(i).name + "\" has no .to(...)");
+    private void checkRoute(List<Step> steps) {
+        if (steps.isEmpty()) {
+            throw new IllegalStateException("MatchAuto route has no paths");
+        }
+        for (int i = 1; i < steps.size(); i++) {
+            AutoLibrary.Leg before = steps.get(i - 1).leg;
+            AutoLibrary.Leg now = steps.get(i).leg;
+            if (before.to != now.from) {
+                throw new IllegalStateException("MatchAuto step " + (i + 1) + " path #" + now.number
+                        + " starts at " + now.from + " but step " + i + " path #" + before.number
+                        + " ends at " + before.to);
             }
         }
     }
@@ -385,7 +314,7 @@ public class MatchAuto extends LinearOpMode {
         }
         boolean timedOut = drive(index, total, step);
 
-        if (!opModeIsActive()) {
+        if (!opModeIsActive() || localizerFault != null) {
             return;
         }
 
@@ -415,25 +344,11 @@ public class MatchAuto extends LinearOpMode {
     }
 
     private boolean drive(int index, int total, Step step) {
-        Pose start = step.from != null ? step.from : follower.pose();
-
-        if (step.controls.isEmpty() && start.distance(step.to) < MIN_PATH_LENGTH_INCHES) {
+        if (step.leg.length(alliance) < MIN_PATH_LENGTH_INCHES) {
             return turnInPlace(index, total, step);
         }
 
-        Path path;
-        if (step.controls.isEmpty()) {
-            path = Paths.line(start, step.to);
-        } else {
-            Pose[] points = new Pose[step.controls.size() + 2];
-            points[0] = start;
-            for (int i = 0; i < step.controls.size(); i++) {
-                points[i + 1] = step.controls.get(i);
-            }
-            points[points.length - 1] = step.to;
-            path = Paths.curve(points);
-        }
-        follower.follow(path.linear(start, step.to));
+        follower.follow(step.leg.build(alliance));
 
         if (step.intakeWhileDriving) {
             intake.setPower(Constants.INTAKE_POWER);
@@ -442,12 +357,28 @@ public class MatchAuto extends LinearOpMode {
         ElapsedTime pathTimer = new ElapsedTime();
         boolean timedOut = false;
 
+        Pose[] legPoses = step.leg.poses(alliance);
+        Pose legStart = legPoses[0];
+        double legX = legPoses[1].x() - legStart.x();
+        double legY = legPoses[1].y() - legStart.y();
+        double legLength = Math.hypot(legX, legY);
+        int backwardTicks = 0;
+
         while (canKeepRunning() && (follower.following() || follower.isBusy())) {
             if (pathTimer.seconds() >= step.timeoutSeconds) {
                 timedOut = true;
                 break;
             }
             tick();
+            if (index == 0 && legLength > 0.0 && pathTimer.seconds() <= LOCALIZER_CHECK_SECONDS) {
+                Pose here = follower.pose();
+                double along = ((here.x() - legStart.x()) * legX + (here.y() - legStart.y()) * legY) / legLength;
+                backwardTicks = along < -LOCALIZER_BACKWARD_LIMIT_INCHES ? backwardTicks + 1 : 0;
+                if (backwardTicks >= LOCALIZER_FAULT_TICKS) {
+                    reportLocalizerFault(legStart, legX, legY, along);
+                    break;
+                }
+            }
             addStepTelemetry(index, total, step, "following");
             telemetry.addData("Remaining on path", "%.1f in", follower.remainingDistance());
             telemetry.addData("Path time", "%.1f / %.1f s", pathTimer.seconds(), step.timeoutSeconds);
@@ -456,10 +387,42 @@ public class MatchAuto extends LinearOpMode {
 
         intake.setPower(0.0);
 
+        if (localizerFault != null) {
+            lastPathResult = String.format("step %d STOPPED after %.1f s - localizer fault", index + 1, pathTimer.seconds());
+            return false;
+        }
+
         lastPathResult = timedOut
                 ? String.format("step %d TIMEOUT after %.1f s", index + 1, pathTimer.seconds())
                 : String.format("step %d arrived in %.1f s", index + 1, pathTimer.seconds());
         return timedOut;
+    }
+
+    private void reportLocalizerFault(Pose legStart, double legX, double legY, double along) {
+        double heading = legStart.heading();
+        double forwardPart = Math.abs(Math.cos(heading) * legX + Math.sin(heading) * legY);
+        double strafePart = Math.abs(-Math.sin(heading) * legX + Math.cos(heading) * legY);
+        localizerFault = String.format("Pinpoint measured %.1f in BACKWARD while driving the first path", -along);
+        if (forwardPart >= LOCALIZER_POD_DOMINANCE * strafePart) {
+            localizerFix = "If it moves AWAY: flip PINPOINT_X_POD_DIRECTION in pedroPathing/Constants.java.";
+        } else if (strafePart >= LOCALIZER_POD_DOMINANCE * forwardPart) {
+            localizerFix = "If it moves AWAY: flip PINPOINT_Y_POD_DIRECTION in pedroPathing/Constants.java.";
+        } else {
+            localizerFix = "If it moves AWAY: check PINPOINT_X_POD_DIRECTION and PINPOINT_Y_POD_DIRECTION"
+                    + " in pedroPathing/Constants.java.";
+        }
+        localizerCheck = String.format("Measured pose must move from (%.1f, %.1f) toward (%.1f, %.1f).",
+                legStart.x(), legStart.y(), legStart.x() + legX, legStart.y() + legY);
+    }
+
+    private void addLocalizerFaultTelemetry() {
+        telemetry.addLine("!! LOCALIZER READS BACKWARD - AUTO STOPPED");
+        telemetry.addLine(localizerFault);
+        telemetry.addLine("Change nothing yet. INIT this OpMode and push the robot by hand along the first path.");
+        telemetry.addLine(localizerCheck);
+        telemetry.addLine(localizerFix);
+        telemetry.addLine("If the other coordinate changes instead: the two pod cables are swapped on the Pinpoint.");
+        telemetry.addLine("If the robot itself drove backward, fix the drive motor directions instead.");
     }
 
     private boolean turnInPlace(int index, int total, Step step) {
@@ -917,38 +880,25 @@ public class MatchAuto extends LinearOpMode {
         follower.update();
     }
 
-    private static Step step(String name) {
-        return new Step(name);
+    private Step path(int number) {
+        return new Step(AutoLibrary.number(number), alliance);
     }
 
     private static final class Step {
+        final AutoLibrary.Leg leg;
         final String name;
-        Pose from;
-        Pose to;
-        final List<Pose> controls = new ArrayList<>();
+        final Pose to;
         int shots = 0;
         double intakeSeconds = 0.0;
         boolean intakeWhileDriving = false;
         double pauseSeconds = 0.0;
-        double timeoutSeconds = DEFAULT_PATH_TIMEOUT_SECONDS;
+        double timeoutSeconds;
 
-        Step(String name) {
-            this.name = name;
-        }
-
-        Step from(Pose pose) {
-            from = pose;
-            return this;
-        }
-
-        Step to(Pose pose) {
-            to = pose;
-            return this;
-        }
-
-        Step control(Pose... poses) {
-            controls.addAll(Arrays.asList(poses));
-            return this;
+        Step(AutoLibrary.Leg leg, GoalScanner.Alliance alliance) {
+            this.leg = leg;
+            this.name = leg.describe();
+            this.to = leg.end(alliance);
+            this.timeoutSeconds = leg.timeoutSeconds();
         }
 
         Step shoot(int count) {
@@ -978,7 +928,6 @@ public class MatchAuto extends LinearOpMode {
 
         String actions() {
             StringBuilder text = new StringBuilder();
-            if (!controls.isEmpty()) text.append("  cp ").append(controls.size());
             if (intakeWhileDriving) text.append("  intake-drive");
             if (shots > 0) text.append(String.format("  shoot %d", shots));
             if (intakeSeconds > 0) text.append(String.format("  intake %.1fs", intakeSeconds));

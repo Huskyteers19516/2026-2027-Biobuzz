@@ -3,22 +3,23 @@ package org.firstinspires.ftc.teamcode.opmode.teleOp;
 import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
+import org.firstinspires.ftc.teamcode.launcher.Launcher;
 import org.firstinspires.ftc.teamcode.launcher.ShotLog;
-import org.firstinspires.ftc.teamcode.launcher.ShotTable;
+import org.firstinspires.ftc.teamcode.launcher.ShotZones;
 
 import java.util.List;
 
-@TeleOp(name = "Shot Table Preview", group = "Test")
-public class ShotTablePreview extends OpMode {
+@TeleOp(name = "Shot Zone Preview", group = "Test")
+public class ShotZonePreview extends OpMode {
 
-    private static final double GRID_START_INCHES = 24.0;
-    private static final double GRID_END_INCHES = 144.0;
-    private static final double GRID_STEP_INCHES = 12.0;
-    private static final double PROBE_SMALL_STEP = 1.0;
-    private static final double PROBE_BIG_STEP = 12.0;
+    private static final double GRID_START_INCHES = 34.0;
+    private static final double GRID_END_INCHES = 66.0;
+    private static final double GRID_STEP_INCHES = 2.0;
+    private static final double PROBE_SMALL_STEP = 0.5;
+    private static final double PROBE_BIG_STEP = 4.0;
     private static final int LOG_LINES_SHOWN = 12;
 
-    private double probeInches = 60.0;
+    private double probeInches = 45.0;
 
     @Override
     public void init() {
@@ -50,24 +51,22 @@ public class ShotTablePreview extends OpMode {
         }
         probeInches = Math.max(0.0, probeInches);
 
-        ShotTable.Fit fit = ShotTable.fit();
-        telemetry.addData("Table", ShotTable.summary());
-        if (fit == null) {
-            telemetry.addLine("Fix ShotTable.SHOT_DATA. Until then every distance uses the default velocity.");
+        String problem = ShotZones.problem();
+        if (problem != null) {
+            telemetry.addLine("!! " + problem);
+            telemetry.addLine(String.format("Fix ShotZones.ZONES. Until then every distance uses %.0f.",
+                    Launcher.DEFAULT_TARGET_VELOCITY));
         } else {
-            telemetry.addData("Formula", fit.formula());
-            telemetry.addData("Probe (dpad)", "%.0f in -> %.0f", probeInches, ShotTable.velocityForDistance(probeInches));
-            telemetry.addLine();
-            telemetry.addLine("Your data:  distance  measured  ->  table  (error)");
-            for (double[] row : ShotTable.SHOT_DATA) {
-                double predicted = ShotTable.velocityForDistance(row[0]);
-                telemetry.addLine(String.format("  %.1f in  %.0f  ->  %.0f  (%+.0f)",
-                        row[0], row[1], predicted, predicted - row[1]));
+            telemetry.addLine("Zones (distance = robot center to goal point):");
+            for (ShotZones.Zone zone : ShotZones.zones()) {
+                telemetry.addLine("  " + zone.describe());
             }
+            telemetry.addData("Burst", "+%.0f on top while firing 3", Launcher.DEFAULT_BURST_BOOST);
+            telemetry.addData("Probe (dpad)", ShotZones.lookup(probeInches).describe());
             telemetry.addLine();
-            telemetry.addLine("Table every 12 in:");
+            telemetry.addLine(String.format("Every %.0f in:", GRID_STEP_INCHES));
             for (double d = GRID_START_INCHES; d <= GRID_END_INCHES; d += GRID_STEP_INCHES) {
-                telemetry.addLine(String.format("  %.0f in -> %.0f", d, ShotTable.velocityForDistance(d)));
+                telemetry.addLine("  " + ShotZones.lookup(d).describe());
             }
         }
 
@@ -77,7 +76,7 @@ public class ShotTablePreview extends OpMode {
         if (saved.isEmpty()) {
             telemetry.addLine("  none yet - in Robot TeleOp press gp2 BACK after a shot goes in");
         } else {
-            telemetry.addLine("  copy these lines into ShotTable.SHOT_DATA:");
+            telemetry.addLine("  {distance, velocity} of shots that went in - use them to add or move zones:");
             for (String line : saved) {
                 telemetry.addLine("  " + line);
             }

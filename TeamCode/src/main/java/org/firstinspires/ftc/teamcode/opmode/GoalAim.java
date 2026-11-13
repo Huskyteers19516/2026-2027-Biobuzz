@@ -2,7 +2,7 @@ package org.firstinspires.ftc.teamcode.opmode;
 
 import com.pedropathing.math.Pose;
 
-import org.firstinspires.ftc.teamcode.launcher.ShotTable;
+import org.firstinspires.ftc.teamcode.launcher.ShotZones;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
 public final class GoalAim {
@@ -92,11 +92,11 @@ public final class GoalAim {
     }
 
     public static double velocityForDistance(double inches) {
-        return ShotTable.velocityForDistance(inches);
+        return ShotZones.velocityForDistance(inches);
     }
 
-    public static String shotTableProblem() {
-        return ShotTable.problem();
+    public static String shotZonesProblem() {
+        return ShotZones.problem();
     }
 
     public static double normalizeRadians(double radians) {

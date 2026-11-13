@@ -4,7 +4,7 @@ import com.pedropathing.math.Pose;
 
 public class FieldPointsBlue {
 
-    public static final boolean POINTS_CONFIRMED = false;
+    public static final boolean POINTS_CONFIRMED = true;
 
     public static final Pose START_POSE = new Pose(81.0, 129.0, Math.toRadians(270.0));
 
@@ -26,13 +26,18 @@ public class FieldPointsBlue {
 
     public static final Pose PARK_POSE = new Pose(131.1, 36.5, Math.toRadians(270.0));
 
-    public static final boolean GOALS_CONFIRMED = false;
+    public static final boolean GOALS_CONFIRMED = true;
     public static final Pose GOAL_SCORING = new Pose(84.75, 86.0, Math.toRadians(90.0));
     public static final Pose GOAL_AUDIENCE = new Pose(84.75, 58.0, Math.toRadians(270.0));
 
-    public static final boolean PARK_ROUTE_CONFIRMED = false;
+    public static final boolean PARK_ROUTE_CONFIRMED = true;
     public static final Pose RACK_AROUND_1 = new Pose(114.0, 114.0, Math.toRadians(270.0));
     public static final Pose RACK_AROUND_2 = new Pose(114.0, 39.0, Math.toRadians(270.0));
     public static final Pose UNDER_RACK_CONTROL_POINT_1 = new Pose(79.018, 106.517, Math.toRadians(270.0));
     public static final Pose UNDER_RACK_CONTROL_POINT_2 = new Pose(79.018, 33.812, Math.toRadians(270.0));
+
+    public static final Pose FLOWER_1 = FieldPoints.flowerPose(FLOWER_1_START, FLOWER_1_END);
+    public static final Pose FLOWER_2 = FieldPoints.flowerPose(FLOWER_2_START, FLOWER_2_END);
+    public static final Pose FLOWER_3 = FieldPoints.flowerPose(FLOWER_3_START, FLOWER_3_END);
+    public static final Pose FLOWER_4 = FieldPoints.flowerPose(FLOWER_4_START, FLOWER_4_END);
 }
